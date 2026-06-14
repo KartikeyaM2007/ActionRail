@@ -2174,3 +2174,58 @@ pytest -q
 ## What the user should send to ChatGPT
 Copy paste this whole latest ForKnow.md entry.
 
+
+# Cursor Work Update: Phase 6D Pre-Public Repository Sanity Check
+
+## Date
+
+2026-06-14T23:05:00+05:30
+
+## Prompt I worked on
+
+Phase 6D: pre-public repository sanity check. Verify clean repo, no secrets, no database/uploads/datasets/credentials files tracked, check links, final README scan, run full pytest.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| ForKnow.md | Appended this no-change verification pass entry. |
+
+## What I added
+
+- None (no-change verification pass).
+
+## What I modified
+
+- None (no-change verification pass).
+
+## What I did not change
+
+- Did not modify any application logic or backend files.
+- Did not change JSON API shapes or receipt signatures.
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 185.28s (0:03:05)
+```
+
+## Current status
+
+- App status: Fully regression verified, tests passing.
+- Dashboard status: Polished and responsive.
+- API status: Protected and governed.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest ForKnow.md entry.
+
