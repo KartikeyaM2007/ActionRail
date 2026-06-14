@@ -1689,4 +1689,147 @@ Browser uvicorn smoke not re-run this session. Multi-role flow covered by `tests
 
 ## What the user should send to ChatGPT
 
-Copy paste this whole latest `ForKnow.md` entry from `# Cursor Work Update: Phase 5A` through the end of this section.
+Copy paste this whole latest `ForKnow.md` entry from `# Cursor Work Update: Phase 5A` through the end of that section.
+
+---
+
+# Cursor Work Update: Phase 5B — Policy admin, vendor onboarding, contract evidence
+
+## Date
+
+2026-06-14
+
+## Prompt I worked on
+
+Phase 5B: admin UI for vendor onboarding, contract registration, policy threshold management, contract evidence upload, audited admin changes. Keep JSON API unchanged, all tests green.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| `app/admin_routes.py` | New — admin routes for vendors, contracts, policies, evidence |
+| `app/store.py` | Schema migration, vendor/contract CRUD, policy update, contract evidence |
+| `app/policy.py` | Vendor status + contract status/expiry in checks |
+| `app/auth.py` | `manage_admin` permission |
+| `app/control.py` | `can_view_admin` in page context |
+| `app/main.py` | Mount admin routes with dynamic `get_conn` |
+| `app/templates/admin_*.html` | Six admin templates |
+| `app/templates/partials/control_nav.html` | Admin link for admin role |
+| `data/contract_evidence/.gitkeep` | New ignored evidence dir |
+| `.gitignore` | Ignore `data/contract_evidence/*` |
+| `scripts/reset_demo_db.py` | Drop `contract_evidence` table |
+| `tests/test_admin.py` | 21 Phase 5B tests |
+| README + docs + TASKS + HANDOFF + CHANGELOG + ForKnow.md | Phase 5B docs |
+
+## What I added
+
+- `/dashboard/admin` section (vendors, contracts, policies) — admin only, CSRF-protected
+- Vendor CRUD with status verified/pending_review/blocked
+- Contract CRUD with active/inactive/expired + local evidence upload
+- Editable policy thresholds (future preflights only)
+- Audit events: vendor_*, contract_*, policy_updated, contract_evidence_uploaded
+
+## What I modified
+
+- Policy engine uses vendor status and contract status (seed data preserved via migration backfill)
+
+## What I did not change
+
+- JSON API shapes, receipt signature payload, simulated execution
+- Phase 5A auth/RBAC/CSRF/audit flows
+- No OAuth, external ERP, or real payments
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+196 passed in 87.26s (0:01:27)
+```
+
+## Manual smoke command summary
+
+Browser multi-role smoke not re-run this session. Admin flows covered by `tests/test_admin.py`. Manual: login as admin → `/dashboard/admin` → create vendor/contract → upload evidence → update policy → verify audit log.
+
+## Current status
+
+- App/API: **196/196 tests pass**
+- Admin UI: working locally with audited changes
+- Known issues: admin routes use `get_conn()` lambda so test DB monkeypatch works; production still needs real IdP and durable audit storage
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest `ForKnow.md` entry from `# Cursor Work Update: Phase 5B` through the end of this section.
+
+---
+
+# Antigravity Work Update: Context-retention and handoff pass
+
+## Date
+
+2026-06-14, IST afternoon session.
+
+## Prompt I worked on
+
+Context-retention and handoff pass only. Read current project files to fully understand the local production-grade prototype for finance agent execution control. Created durable Antigravity handoff documents so future prompts retain context. No new features, no refactoring, no API changes, no schema changes. Executed tests and verified current state. Saved Phase 5C prompt for the next coding session.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| `docs/ANTIGRAVITY_HANDOFF.md` (new) | Created handoff document summarizing current status, architecture, database tables, auth/RBAC, admin control plane, policy engine, invoice flow, transaction lifecycle, receipt signing, and audit ledger. Mentioned Phase 5C as the next planned phase but did not implement it. |
+| `docs/ROUTE_MAP.md` (new) | Created route map grouping all public, dashboard, transaction, receipt, writeback, audit, admin, and JSON API routes. |
+| `docs/SCHEMA_MAP.md` (new) | Created schema map detailing the 11 current SQLite tables and their purposes. |
+| `docs/NEXT_PHASE_5C_PROMPT.md` (new) | Created a clean future prompt for Phase 5C covering approval workflows, steps, maker-checker separation, and execution gating. Saved for the next session. |
+| `HANDOFF.md` | Added the 4 new handoff documents to the Important files table. Updated next tasks to feature Phase 5C. |
+| `TASKS.md` | Added the context-retention pass to completed tasks. |
+| `CHANGELOG.md` | Added a new entry for the context-retention and Antigravity handoff pass. |
+| `ForKnow.md` | Appended this entry. |
+
+## What I added
+
+- `docs/ANTIGRAVITY_HANDOFF.md`
+- `docs/ROUTE_MAP.md`
+- `docs/SCHEMA_MAP.md`
+- `docs/NEXT_PHASE_5C_PROMPT.md`
+- Updates to `HANDOFF.md`, `TASKS.md`, `CHANGELOG.md`, `ForKnow.md`
+
+## What I modified
+
+- `HANDOFF.md`
+- `TASKS.md`
+- `CHANGELOG.md`
+- `ForKnow.md`
+
+## What I did not change
+
+- Did not start a new feature.
+- Did not implement Phase 5C.
+- Did not refactor production code.
+- Did not change API JSON response shapes.
+- Did not change receipt signature payload.
+- Did not change policy behavior.
+- Did not change database schema.
+- Did not add external integrations.
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+.................................................................................................................................................................................................... [100%]
+196 passed in 102.33s (0:01:42)
+```
+
+## Current status
+
+- **Verified state**: 196 tests passing. Context-retention documents created successfully.
+- **Known issues**: None from this pass.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest `ForKnow.md` entry.

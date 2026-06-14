@@ -152,7 +152,21 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
 - **`scripts/reset_demo_db.py`**: resets users + audit_events.
 - **`tests/test_auth.py`**, **`tests/dash_helpers.py`**; existing dashboard tests updated for auth/CSRF.
 - **Docs** updated (README demo credentials, ARCHITECTURE, SAFETY_BOUNDARY, DEMO_SCRIPT, etc.).
-- **Tests: 175/175 passing.**
+- **Tests: 196/196 passing.**
+
+### Phase 5B — Policy admin, vendor onboarding, contract evidence (done, this commit)
+
+- **Phase 5B — Policy admin, vendor onboarding, contract evidence (done)**:
+  - `app/admin_routes.py`: admin dashboard routes (vendors, contracts, policies, evidence upload).
+  - `app/store.py`: schema migration, vendor/contract CRUD, policy update, contract evidence helpers.
+  - `app/policy.py`: vendor status + contract status/expiry checks.
+  - `app/auth.py`: `manage_admin` permission.
+  - Templates: `admin_*.html` (6 files).
+  - `data/contract_evidence/`, `.gitignore` updated.
+  - `tests/test_admin.py`: 21 new tests.
+  - **Tests: 196/196 passing.**
+
+- **Context-retention and handoff pass (done, this commit)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
 
 ---
 
@@ -160,7 +174,9 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
 
 Priority order:
 
-1. **Expand backend-policy tests** (per `PROJECT.md` section 16) — backend-policy items not yet covered:
+1. **Phase 5C — Approval workflow engine** (see `docs/NEXT_PHASE_5C_PROMPT.md`): multi-step workflows, maker-checker separation, and execution gating.
+
+2. **Expand backend-policy tests** (per `PROJECT.md` section 16) — backend-policy items not yet covered:
    - Executed transaction returns same receipt idempotently.
    - Intent lock blocks second transaction for same invoice; expired lock cleaned up.
    - Action not in `allowed_actions` is blocked.
@@ -170,13 +186,13 @@ Priority order:
    - Receipt signature verifies with secret.
    - Policy update changes decision.
 
-2. **Phase 2B — Image OCR**: Add Tesseract / PaddleOCR / EasyOCR support for scanned image invoices.
+3. **Phase 2B — Image OCR**: Add Tesseract / PaddleOCR / EasyOCR support for scanned image invoices.
 
-3. Clean up `app/cli.py` to expose: health, manifest, approve, reject, execute, receipt, transactions, dashboard.
+4. Clean up `app/cli.py` to expose: health, manifest, approve, reject, execute, receipt, transactions, dashboard.
 
-4. Capture and commit the 7 demo screenshots per `docs/screenshots/README.md`.
+5. Capture and commit the 7 demo screenshots per `docs/screenshots/README.md`.
 
-5. Pick a license and add a `LICENSE` file before public release.
+6. Pick a license and add a `LICENSE` file before public release.
 
 ---
 
@@ -189,6 +205,6 @@ None right now. Future phases (real ingestion, integrations, MCP server, payment
 ## Testing status
 
 - Test runner: `pytest -q`.
-- Last known state (2026-06-14, after Phase 5A): **175 / 175 tests pass**.
+- Last known state (2026-06-14, after Context-retention pass): **196 / 196 tests pass**.
 - Dashboard tests use an autouse fixture that monkeypatches `app.main.conn` to a fresh per-test SQLite DB seeded with demo data. Without isolation, the persistent intent-lock TTL (15 minutes) makes serial demo-preflights of the same invoice land as `decision=blocked`.
 - **Rule**: do not remove tests. Add new tests under `tests/` for every new policy/transaction behavior.

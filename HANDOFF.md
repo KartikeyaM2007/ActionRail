@@ -23,6 +23,8 @@ Living handoff doc for the next Cursor model/chat picking up ActionRail Finance.
 - **Phase 4A — Final MVP completion and public release polish (done)**: dashboard column **Preflight Decision**; new docs (`DEMO_SCRIPT`, `ARCHITECTURE`, `SAFETY_BOUNDARY`, `PROJECT_COMPLETION`); README completion status; GitHub release checklist. **Tests: 155/155 passing.**
 - Backend logic reused via three small internal helpers (`_approve_transaction`, `_reject_transaction`, `_execute_transaction`) shared by the JSON API routes and the dashboard routes. **API JSON response shapes preserved exactly.**
 - **Phase 5A — Authenticated control plane (done)**: local dashboard login (`/login`), six demo roles with RBAC, CSRF on dashboard POST forms, audit ledger (`/dashboard/audit`), transaction-level audit trail on detail pages. JSON API unchanged. **Tests: 175/175 passing.**
+- **Phase 5B — Policy admin, vendor onboarding, contract evidence (done)**: admin UI at `/dashboard/admin` for vendors, contracts, policy thresholds, contract evidence upload. All admin changes audited. **Tests: 196/196 passing.**
+- **Context-retention and handoff pass (done)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
 - No other work-in-progress.
 
 ---
@@ -72,6 +74,7 @@ Open in browser:
 - `http://127.0.0.1:8000/login` — dashboard sign-in (demo credentials in README)
 - `http://127.0.0.1:8000/docs` — Swagger / OpenAPI
 - `http://127.0.0.1:8000/dashboard` — HTML dashboard (requires login)
+- `http://127.0.0.1:8000/dashboard/admin` — vendor/contract/policy admin (admin only)
 - `http://127.0.0.1:8000/dashboard/audit` — audit log (auditor/admin)
 - `http://127.0.0.1:8000/actionrail/manifest.json` — agent manifest
 
@@ -119,6 +122,10 @@ If the dashboard is empty, post to `/actions/preflight` from Swagger or run the 
 
 | Path | Role |
 |---|---|
+| `docs/ANTIGRAVITY_HANDOFF.md` | Antigravity handoff document covering project state and architecture. |
+| `docs/ROUTE_MAP.md` | Current route map detailing all public, dashboard, and API endpoints. |
+| `docs/SCHEMA_MAP.md` | Current schema map detailing all SQLite tables. |
+| `docs/NEXT_PHASE_5C_PROMPT.md` | Future prompt for Phase 5C (Approval Workflow Engine). |
 | `PROJECT.md` | Master product/architecture spec. Always read first. |
 | `README.md` | User-facing quickstart and API summary. |
 | `LICENSE` | MIT License. |
@@ -199,6 +206,19 @@ GET  /dashboard/invoices/upload
 POST /dashboard/invoices/upload
 GET  /dashboard/invoices/review/{doc_id}
 POST /dashboard/invoices/review/{doc_id}/submit
+GET  /dashboard/audit
+GET  /dashboard/admin
+GET  /dashboard/admin/vendors
+POST /dashboard/admin/vendors
+GET  /dashboard/admin/vendors/{vendor_id}
+POST /dashboard/admin/vendors/{vendor_id}/update
+GET  /dashboard/admin/contracts
+POST /dashboard/admin/contracts
+GET  /dashboard/admin/contracts/{contract_id}
+POST /dashboard/admin/contracts/{contract_id}/update
+POST /dashboard/admin/contracts/{contract_id}/evidence
+GET  /dashboard/admin/policies
+POST /dashboard/admin/policies
 ```
 
 Decisions returned by `/actions/preflight`: `allow`, `approval_required`, `blocked`, `needs_more_evidence`.
@@ -211,10 +231,11 @@ Statuses on transactions: `preflighted`, `approved`, `rejected`, `executed`, `bl
 
 In priority order (mirrors `TASKS.md`):
 
-1. **Expand backend-policy tests** (per `PROJECT.md` section 16) — idempotent receipt, intent-lock conflict + expiry, action-not-in-allowed_actions, GST mismatch, contract overflow, critical-amount senior approval.
-2. **Capture demo screenshots** per `docs/screenshots/README.md` (7 core + 4 real-upload + optional writeback `12` + post-writeback detail `13`).
-3. **Push to GitHub** — run through `docs/RELEASE_CHECKLIST.md` first.
-4. Clean up `app/cli.py`.
+1. **Phase 5C — Approval workflow engine** (see `docs/NEXT_PHASE_5C_PROMPT.md`): multi-step workflows, maker-checker separation, and execution gating.
+2. **Expand backend-policy tests** (per `PROJECT.md` section 16) — idempotent receipt, intent-lock conflict + expiry, action-not-in-allowed_actions, GST mismatch, contract overflow, critical-amount senior approval.
+3. **Capture demo screenshots** per `docs/screenshots/README.md` (7 core + 4 real-upload + optional writeback `12` + post-writeback detail `13`).
+4. **Push to GitHub** — run through `docs/RELEASE_CHECKLIST.md` first.
+5. Clean up `app/cli.py`.
 
 Always: after edits, run `pytest -q`, then update this file, `CHANGELOG.md`, and append a new entry to `ForKnow.md`.
 

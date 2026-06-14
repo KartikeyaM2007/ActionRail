@@ -6,6 +6,51 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+---
+
+## 2026-06-14 — Context-retention and Antigravity handoff pass
+
+### Added
+- `docs/ANTIGRAVITY_HANDOFF.md`: Context-retention document for future AI coding agents.
+- `docs/ROUTE_MAP.md`: Map of all current API and dashboard routes.
+- `docs/SCHEMA_MAP.md`: Map of all current SQLite database tables.
+- `docs/NEXT_PHASE_5C_PROMPT.md`: Clean future prompt saved for Phase 5C (Approval Workflow Engine).
+
+### Tests
+```bash
+pytest -q
+```
+```text
+196 passed in 87.26s
+```
+
+---
+
+## 2026-06-14 — Policy admin, vendor onboarding, contract evidence (Phase 5B)
+
+Local admin UI for vendors, contracts, policy thresholds, contract evidence. **196 tests pass.**
+
+### Added
+
+- **`app/admin_routes.py`**, admin templates, `contract_evidence` table/storage.
+- **`tests/test_admin.py`** (21 tests).
+
+### Changed
+
+- **`app/store.py`**, **`app/policy.py`**, **`app/auth.py`**, **`app/control.py`**, docs.
+
+### Tests
+
+```bash
+pytest -q
+```
+
+```text
+196 passed in 87.26s
+```
+
+---
+
 ## 2026-06-14 — Authenticated control plane: local auth, RBAC, CSRF, audit ledger (Phase 5A)
 
 Local dashboard control-plane foundation. JSON API response shapes unchanged. Receipt signature payload unchanged. **175 tests pass.**
