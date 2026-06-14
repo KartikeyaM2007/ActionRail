@@ -2,6 +2,28 @@
 
 Place captured PNG screenshots in this directory.
 
+**Screenshots are optional for tests** but **recommended before pinning the repo** for demos, README assets, and reviewer clarity.
+
+## Canonical screenshot list (01–13)
+
+```txt
+01-dashboard-clean.png
+02-transaction-approval-required.png
+03-transaction-approved.png
+04-transaction-executed.png
+05-signed-receipt.png
+06-duplicate-blocked.png
+07-missing-evidence.png
+08-upload-real-invoice.png
+09-review-extracted-invoice.png
+10-uploaded-invoice-transaction.png
+11-uploaded-invoice-receipt.png
+12-accounting-sandbox-writeback.png
+13-executed-transaction-with-writeback.png
+```
+
+Commit PNGs to this directory only if they contain safe demo data with no personal or real financial information.
+
 ## Recommended clean demo state
 
 Always capture against a freshly reset database so the queue is empty before you start clicking. Otherwise the dashboard will include stale rows from earlier recording attempts.
@@ -44,7 +66,11 @@ Run this exact sequence; each step maps to one screenshot.
 * `.png` only — vector text rendering stays crisp on retina displays.
 * Keep originals at the captured resolution. Do not down-rez or compress before commit.
 
+Screenshots are not required for `pytest -q` to pass. Capture them before a public demo recording or when adding visual assets to the GitHub README.
+
 ## Required filenames
+
+The list below duplicates the canonical list above for quick reference during capture:
 
 ```txt
 01-dashboard-clean.png

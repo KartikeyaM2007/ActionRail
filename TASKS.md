@@ -133,6 +133,16 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
 - **`tests/test_dashboard.py`**: 8 new Phase 3D tests (154 total): unit tests for stat helper + integration tests via dashboard HTML.
 - **Tests: 154/154 passing.**
 
+### Phase 4A — Final MVP completion and public release polish (done, this commit)
+
+- **`app/templates/dashboard.html`**: queue table column renamed to **Preflight Decision**.
+- **`tests/test_dashboard.py`**: test for Preflight Decision column header.
+- **New docs**: `docs/DEMO_SCRIPT.md`, `docs/ARCHITECTURE.md`, `docs/SAFETY_BOUNDARY.md`, `docs/PROJECT_COMPLETION.md`.
+- **`README.md`**: completion status section + links to new docs.
+- **`docs/RELEASE_CHECKLIST.md`**: GitHub repo polish checklist + git hygiene commands.
+- **`docs/screenshots/README.md`**: canonical 01–13 list + optional-for-tests note.
+- **Tests: 155/155 passing.**
+
 ---
 
 ## Next tasks
@@ -168,6 +178,6 @@ None right now. Future phases (real ingestion, integrations, MCP server, payment
 ## Testing status
 
 - Test runner: `pytest -q`.
-- Last known state (2026-06-14, after Phase 3D): **154 / 154 tests pass**.
+- Last known state (2026-06-14, after Phase 4A): **155 / 155 tests pass**.
 - Dashboard tests use an autouse fixture that monkeypatches `app.main.conn` to a fresh per-test SQLite DB seeded with demo data. Without isolation, the persistent intent-lock TTL (15 minutes) makes serial demo-preflights of the same invoice land as `decision=blocked`.
 - **Rule**: do not remove tests. Add new tests under `tests/` for every new policy/transaction behavior.

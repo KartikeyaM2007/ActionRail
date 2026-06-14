@@ -6,6 +6,44 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-14 — Final MVP completion and public release polish (Phase 4A)
+
+Documentation and dashboard wording polish for GitHub-ready MVP presentation. No product logic changes. **155 tests pass.**
+
+### Added
+
+- **`docs/DEMO_SCRIPT.md`** — 2–3 minute demo walkthrough (four flows + safety boundary + closing pitch).
+- **`docs/ARCHITECTURE.md`** — high-level architecture, lifecycle, data model, policy, upload/OCR, receipt, writeback, local-only vs production.
+- **`docs/SAFETY_BOUNDARY.md`** — what ActionRail does/does not do, simulated execution rationale, production requirements.
+- **`docs/PROJECT_COMPLETION.md`** — honest MVP completion checklist (154+ tests, known limitations, roadmap).
+- **`tests/test_dashboard.py`**: `test_dashboard_table_uses_preflight_decision_column`.
+
+### Changed
+
+- **`app/templates/dashboard.html`**: queue table column **Decision** → **Preflight Decision**.
+- **`README.md`**: "Current completion status" section; links to new docs in Further reading.
+- **`docs/RELEASE_CHECKLIST.md`**: git hygiene PowerShell commands; section 12 GitHub repo polish checklist with suggested topics.
+- **`docs/screenshots/README.md`**: canonical 01–13 list at top; note that screenshots are optional for tests.
+
+### Tests
+
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+155 passed in 7.03s
+```
+
+### What was not changed
+
+- Policy logic, API JSON shapes, receipt signing, accounting writeback, stored transactions.
+
+---
+
 ## 2026-06-14 — Dashboard stat correctness polish (Phase 3D)
 
 Dashboard stat cards now count **current operational queue state**, not historical decision alone. An executed transaction with `decision=approval_required` counts only under Executed, not Approval Required. **154 tests pass.**

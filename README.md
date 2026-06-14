@@ -74,6 +74,12 @@ The primitive is proved when the three demo flows all behave correctly. That is 
 - **Local accounting sandbox writeback** — after simulated execution, create a draft bill JSON and audit packet JSON in the local sandbox. No ERP, bank, or ledger mutation is performed. This proves the accounting writeback boundary and prepares for real sandbox integrations in later phases.
 - **`pytest` suite** covering the policy engine, dashboard routes, upload flow, accounting writeback, and the reset script.
 
+## Current completion status
+
+ActionRail Finance is MVP-complete as a local execution-control prototype. It demonstrates invoice evidence intake, review, policy preflight, approval, simulated execution, signed receipts, and local accounting sandbox writeback. It is not production finance automation.
+
+See [`docs/PROJECT_COMPLETION.md`](docs/PROJECT_COMPLETION.md) for the full completion checklist.
+
 ## What it does not do yet
 
 These are deliberate deferments, not oversights.
@@ -324,6 +330,10 @@ Screenshots not yet committed. Capture flow and naming convention: [`docs/screen
 
 - [`PROJECT.md`](PROJECT.md) — master product / architecture spec.
 - [`docs/PITCH.md`](docs/PITCH.md) — concise YC-style pitch.
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — 2–3 minute demo walkthrough.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system design for reviewers.
+- [`docs/SAFETY_BOUNDARY.md`](docs/SAFETY_BOUNDARY.md) — what is and is not real.
+- [`docs/PROJECT_COMPLETION.md`](docs/PROJECT_COMPLETION.md) — MVP completion status.
 - [`DECISIONS.md`](DECISIONS.md) — architectural decisions with rationale.
 - [`HANDOFF.md`](HANDOFF.md) — current state + how to run.
 - [`CHANGELOG.md`](CHANGELOG.md) — versioned change log.

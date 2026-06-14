@@ -110,9 +110,17 @@ git status
 git diff --cached
 ```
 
+```powershell
+git status --ignored
+git ls-files
+```
+
+**Ignored local files should include:** SQLite databases (`*.db`), `data/uploads/`, `data/datasets/` content, Kaggle credentials (`kaggle.json`, `.kaggle/`), `__pycache__/`, `.venv/`, generated accounting sandbox JSON (`data/accounting_sandbox/draft_bills/*`, `data/accounting_sandbox/audit_packets/*`), and `.env`.
+
 - [ ] No `.db` files staged (`*.db` is in `.gitignore`).
 - [ ] No `data/datasets/` content staged (`data/datasets/*` is in `.gitignore`).
 - [ ] No `data/uploads/` content staged (`data/uploads/*` is in `.gitignore`).
+- [ ] No generated sandbox writeback JSON staged (`data/accounting_sandbox/*` content gitignored).
 - [ ] No `kaggle.json` staged (`kaggle/`, `kaggle.json`, `**/kaggle.json`, `.kaggle/` all in `.gitignore`).
 - [ ] No `.env` staged.
 - [ ] No local secrets staged.
@@ -150,3 +158,32 @@ git push
 - [ ] CI/CD passes (if configured).
 - [ ] GitHub repo is public or shared with intended reviewers.
 - [ ] Demo URL is shared if deployed.
+
+---
+
+## 12. GitHub repo polish
+
+- [ ] Repository description added (e.g. *Transaction runtime for finance AI agents — preflight, approval, simulated execution, signed receipts*).
+- [ ] Topics added:
+
+  ```text
+  ai-agents
+  finance-automation
+  invoice-processing
+  fastapi
+  sqlite
+  ocr
+  audit-trail
+  human-in-the-loop
+  agent-safety
+  transaction-runtime
+  ```
+
+- [ ] README renders correctly on GitHub (links to `docs/DEMO_SCRIPT.md`, `docs/ARCHITECTURE.md`, `docs/SAFETY_BOUNDARY.md`, `docs/PROJECT_COMPLETION.md`).
+- [ ] LICENSE visible in repo root.
+- [ ] `.gitignore` protecting DB, uploads, datasets, secrets, sandbox JSON.
+- [ ] `pytest -q` passes locally.
+- [ ] No local sensitive files staged (`git status`, `git ls-files`).
+- [ ] Screenshots captured or intentionally deferred (see [`docs/screenshots/README.md`](screenshots/README.md)).
+- [ ] GitHub repo pushed.
+- [ ] Optional release tag created (e.g. `v0.1.0-mvp`).

@@ -1547,3 +1547,82 @@ pytest -q
 ## What the user should send to ChatGPT
 
 Copy paste this whole latest `ForKnow.md` entry — everything from `# Cursor Work Update: Phase 3D — Dashboard stat correctness polish` down to the end of this section.
+
+# Cursor Work Update: Phase 4A — Final MVP completion and public release polish
+
+## Date
+
+2026-06-14
+
+## Prompt I worked on
+
+Phase 4A: make GitHub repo complete and demo-ready — dashboard Preflight Decision column, demo script, architecture, safety boundary, project completion docs, README links, screenshot/release checklist updates. No new product scope.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| `app/templates/dashboard.html` | Column header **Decision** → **Preflight Decision**. |
+| `tests/test_dashboard.py` | Updated column label in table test; added `test_dashboard_table_uses_preflight_decision_column`. |
+| `docs/DEMO_SCRIPT.md` | **New** — 2–3 minute demo script. |
+| `docs/ARCHITECTURE.md` | **New** — architecture explainer. |
+| `docs/SAFETY_BOUNDARY.md` | **New** — safety boundary document. |
+| `docs/PROJECT_COMPLETION.md` | **New** — MVP completion checklist. |
+| `README.md` | Current completion status section; Further reading links to new docs. |
+| `docs/RELEASE_CHECKLIST.md` | Git hygiene PowerShell block; section 12 GitHub repo polish. |
+| `docs/screenshots/README.md` | Canonical 01–13 list; optional-for-tests note. |
+| `TASKS.md`, `HANDOFF.md`, `CHANGELOG.md` | Memory updates. |
+| `ForKnow.md` | Appended this entry. |
+
+## What I added
+
+- Four new documentation files under `docs/`
+- Dashboard **Preflight Decision** column label
+- One new dashboard test
+- GitHub topics checklist and git hygiene commands in release checklist
+
+## What I modified
+
+- `app/templates/dashboard.html` — column label only
+- `tests/test_dashboard.py` — column assertions
+- `README.md`, `docs/RELEASE_CHECKLIST.md`, `docs/screenshots/README.md`
+- Memory files
+
+## What I did not change
+
+- `app/main.py`, `app/policy.py`, `app/store.py`, `app/accounting.py` — zero edits
+- API JSON response shapes — unchanged
+- Receipt signature payload — unchanged
+- Policy logic, writeback logic, stat aggregation — unchanged
+- Transaction records — unchanged
+- No real integrations, OAuth, or production auth added
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+155 passed in 7.03s
+```
+
+## Manual smoke command summary
+
+**pytest -q**: 155 passed (see above).
+
+**Browser smoke**: not re-run this session; dashboard column change is HTML-only. Prior phases verified full lifecycle in browser. New column visible at `/dashboard` after creating any transaction.
+
+## Current status
+
+- App status: working. All 155 tests pass.
+- Docs status: MVP-complete documentation set for GitHub reviewers.
+- GitHub: user reported push completed; screenshots still optional to capture/commit.
+- Known issues: screenshots 01–13 not committed unless user captures them.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest `ForKnow.md` entry — everything from `# Cursor Work Update: Phase 4A — Final MVP completion and public release polish` down to the end of this section.

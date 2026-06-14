@@ -105,8 +105,15 @@ def test_dashboard_table_drops_agent_intent_action_columns(client: TestClient):
     assert ">Intent<" not in body
     assert ">Action<" not in body
     # Required columns remain.
-    for label in ("Transaction", "Vendor", "Amount", "Decision", "Risk", "Status", "View"):
+    for label in ("Transaction", "Vendor", "Amount", "Preflight Decision", "Risk", "Status", "View"):
         assert f">{label}<" in body, f"missing column header: {label}"
+
+
+def test_dashboard_table_uses_preflight_decision_column(client: TestClient):
+    _create(client, "approval_required")
+    body = client.get("/dashboard").text
+    assert ">Preflight Decision<" in body
+    assert re.search(r"<th[^>]*>Decision</th>", body) is None
 
 
 def test_dashboard_empty_state_lists_recommended_demo_order(client: TestClient):

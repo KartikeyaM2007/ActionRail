@@ -20,8 +20,9 @@ Living handoff doc for the next Cursor model/chat picking up ActionRail Finance.
 - **Phase 3B — Accounting writeback validation, UX polish, demo hardening (done)**: writeback page clarity (safety copy, `local://` refs, collapsible JSON); transaction detail shows Create vs View writeback buttons conditionally; 5 new accounting tests; docs updated with full writeback demo flow and optional screenshot `12-accounting-sandbox-writeback.png`. Receipt unchanged. **Tests: 141/141 passing.**
 - **Phase 3C — Final transaction state polish and screenshot readiness (done)**: `_display_next_ui_action()` fixes stale `request_finance_approval` in overview after execution; state summary banner on transaction detail; screenshot `13-executed-transaction-with-writeback.png` documented. **Tests: 146/146 passing.**
 - **Phase 3D — Dashboard stat correctness polish (done)**: `_compute_dashboard_stats()` — executed transactions no longer inflate Approval Required stat; approval required counts only `decision=approval_required` + `status=preflighted`. **Tests: 154/154 passing.**
+- **Phase 4A — Final MVP completion and public release polish (done)**: dashboard column **Preflight Decision**; new docs (`DEMO_SCRIPT`, `ARCHITECTURE`, `SAFETY_BOUNDARY`, `PROJECT_COMPLETION`); README completion status; GitHub release checklist. **Tests: 155/155 passing.**
 - Backend logic reused via three small internal helpers (`_approve_transaction`, `_reject_transaction`, `_execute_transaction`) shared by the JSON API routes and the dashboard routes. **API JSON response shapes preserved exactly.**
-- **Tests: 154/154 passing.** 5+18+2+13+7+11+14+24+15+10+9+23+8 across all test files.
+- **Tests: 155/155 passing.**
 - No other work-in-progress.
 
 ---
