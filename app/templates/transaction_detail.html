@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transaction {{ txn.id }} — ActionRail Finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard">← Back to queue</a>
+        <h1 class="neo-title" style="margin-top: 16px">
+          Transaction
+          <span class="neo-logo" style="font-size: inherit"><code>{{ txn.id }}</code></span>
+        </h1>
+        <p class="neo-subtitle">
+          {{ txn.intent }} · {{ txn.action }}
+          {% if txn.vendor %}· vendor {{ txn.vendor }}{% endif %}
+          {% if txn.amount is not none %}
+            · {{ txn.currency or '' }} {{ '{:,.0f}'.format(txn.amount) }}
+          {% endif %}
+        </p>
+      </div>
+      <div class="neo-detail-summary">
+        <span class="neo-badge neo-badge--decision-{{ txn.decision }}">
+          {{ txn.decision|replace('_', ' ') }}
+        </span>
+        <span class="neo-badge neo-badge--risk-{{ txn.risk }}">{{ txn.risk }} risk</span>
+        <span class="neo-badge neo-badge--status-{{ txn.status }}">{{ txn.status }}</span>
+      </div>
+    </header>
+
+    {% if error %}
+    <div class="neo-alert neo-alert--error" role="alert">
+      <strong>Action not allowed:</strong>
+      <code>{{ error }}</code>
+    </div>
+    {% endif %}
+
+    {% if state_summary %}
+    <div class="neo-review-warning" role="status">
+      <p class="neo-review-warning__body">{{ state_summary }}</p>
+    </div>
+    {% endif %}
+
+    <section class="neo-section" aria-labelledby="actions-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="actions-heading">Actions</h2>
+        <span class="neo-section__hint">Buttons reflect current state</span>
+      </div>
+      <div class="neo-actions">
+        {% if can_approve %}
+        <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/approve">
+          <button class="neo-btn" type="submit">Approve</button>
+        </form>
+        <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/reject">
+          <button class="neo-btn neo-btn--ghost" type="submit">Reject</button>
+        </form>
+        {% endif %}
+        {% if can_execute %}
+        <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/execute">
+          <button class="neo-btn" type="submit">Execute</button>
+        </form>
+        {% endif %}
+        {% if has_receipt %}
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/receipt">View receipt</a>
+        {% endif %}
+        {% if txn.status == 'executed' %}
+          {% if not has_accounting_writeback %}
+        <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/writeback/accounting-sandbox">
+          <button class="neo-btn neo-btn--ghost" type="submit">Create Accounting Sandbox Draft Bill</button>
+        </form>
+          {% else %}
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/writeback/accounting-sandbox">View Accounting Sandbox Writeback</a>
+          {% endif %}
+        {% endif %}
+        {% if not can_approve and not can_execute and not has_receipt and txn.status != 'executed' %}
+        <span class="neo-action-row__note">No further actions available for this transaction in its current state.</span>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="neo-section" aria-labelledby="overview-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="overview-heading">Overview</h2>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Transaction ID</div>
+          <div class="neo-detail-card__value"><code>{{ txn.id }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Agent</div>
+          <div class="neo-detail-card__value">{{ txn.agent_id }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">User</div>
+          <div class="neo-detail-card__value">{{ txn.user_id or '—' }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Intent</div>
+          <div class="neo-detail-card__value">{{ txn.intent }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Action</div>
+          <div class="neo-detail-card__value">{{ txn.action }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Vendor</div>
+          <div class="neo-detail-card__value">{{ txn.vendor or '—' }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Amount</div>
+          <div class="neo-detail-card__value">
+            {% if txn.amount is not none %}
+              {{ txn.currency or '' }} {{ '{:,.2f}'.format(txn.amount) }}
+            {% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Next UI action</div>
+          <div class="neo-detail-card__value"><code>{{ display_next_action }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Created</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.95rem">{{ txn.created_at }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Updated</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.95rem">{{ txn.updated_at or '—' }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="neo-section" aria-labelledby="checks-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="checks-heading">Checks</h2>
+        <span class="neo-section__hint">{{ txn.checks|length }} check{{ '' if txn.checks|length == 1 else 's' }}</span>
+      </div>
+      {% if txn.checks %}
+      <ul class="neo-check-list">
+        {% for check in txn.checks %}
+        <li class="neo-check-item neo-check-item--{{ check.status }}">
+          <div class="neo-check-item__head">
+            <span class="neo-check-item__name"><code>{{ check.name }}</code></span>
+            <span class="neo-badge neo-badge--check-{{ check.status }}">{{ check.status }}</span>
+          </div>
+          <div class="neo-check-item__msg">{{ check.message }}</div>
+          {% if check.evidence %}
+          <pre class="neo-pre neo-pre--small">{{ check.evidence | tojson(indent=2) }}</pre>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="neo-alert neo-alert--empty">No checks recorded.</div>
+      {% endif %}
+    </section>
+
+    <section class="neo-section" aria-labelledby="evidence-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="evidence-heading">Evidence &amp; payload</h2>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Invoice ID</div>
+          <div class="neo-detail-card__value"><code>{{ txn.invoice_id or '—' }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Evidence URLs</div>
+          <div class="neo-detail-card__value">
+            {% set urls = txn.invoice.get('evidence_urls') or [] %}
+            {% if urls %}
+            <ul style="margin: 0; padding-left: 1.2em">
+              {% for url in urls %}<li><code>{{ url }}</code></li>{% endfor %}
+            </ul>
+            {% else %}<em>None attached.</em>{% endif %}
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Blocked actions</div>
+          <div class="neo-detail-card__value">
+            {% if txn.blocked_actions %}
+            <ul style="margin: 0; padding-left: 1.2em">
+              {% for ba in txn.blocked_actions %}<li><code>{{ ba }}</code></li>{% endfor %}
+            </ul>
+            {% else %}<em>None.</em>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if txn.uploaded_doc %}
+      <div class="neo-section__head" style="margin-top: 32px">
+        <h3 class="neo-section__title" style="font-size: 1.5rem">Uploaded evidence</h3>
+        <span class="neo-section__hint">Stored locally · no external upload</span>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Original filename</div>
+          <div class="neo-detail-card__value">{{ txn.uploaded_doc.original_filename }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Document ID</div>
+          <div class="neo-detail-card__value"><code>{{ txn.uploaded_doc.id }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">File size</div>
+          <div class="neo-detail-card__value">{{ txn.uploaded_doc.file_size | filesizeformat if txn.uploaded_doc.file_size else '—' }}</div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">SHA-256 (short)</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.85rem" title="{{ txn.uploaded_doc.sha256 }}">
+            {{ txn.uploaded_doc.sha256[:16] }}…
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Extraction status</div>
+          <div class="neo-detail-card__value">
+            {{ txn.uploaded_doc.extraction_status or '—' }}
+            {% set ocr = txn.uploaded_doc.ocr_metadata or {} %}
+            {% if ocr.get('engine') and ocr.get('engine') != 'none' %}
+            · engine: {{ ocr.get('engine') }} · status: {{ ocr.get('status', '—') }}
+            {% endif %}
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Evidence reference</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.85rem">
+            local://uploaded_documents/{{ txn.uploaded_doc.id }}
+          </div>
+        </div>
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Reviewed before transaction</div>
+          <div class="neo-detail-card__value">
+            <span class="neo-reviewed-stamp">Yes — fields confirmed by user</span>
+          </div>
+        </div>
+        {% if txn.uploaded_doc.extracted_fields %}
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Extracted fields (at upload time)</div>
+          <pre class="neo-pre neo-pre--small">{{ txn.uploaded_doc.extracted_fields | tojson(indent=2) }}</pre>
+        </div>
+        {% endif %}
+        {% if txn.uploaded_doc.extraction_notes %}
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Extraction notes</div>
+          <ul class="neo-note-list">
+            {% for note in txn.uploaded_doc.extraction_notes %}
+            <li class="{% if 'manual review' in note.lower() or 'not confidently' in note.lower() %}neo-note--manual{% elif 'ocr' in note.lower() %}neo-note--ocr{% endif %}">{{ note }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if txn.uploaded_doc.extracted_text %}
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Extracted text preview</div>
+          <details class="neo-details">
+            <summary>Show extracted text</summary>
+            <div class="neo-details__body">
+              <pre class="neo-pre neo-pre--small">{{ txn.uploaded_doc.extracted_text[:400] }}{{ '…' if txn.uploaded_doc.extracted_text|length > 400 else '' }}</pre>
+            </div>
+          </details>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    {% if txn.approval %}
+    <section class="neo-section" aria-labelledby="approval-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="approval-heading">Approval</h2>
+      </div>
+      <pre class="neo-pre">{{ txn.approval | tojson(indent=2) }}</pre>
+    </section>
+    {% endif %}
+
+    {% if txn.execution %}
+    <section class="neo-section" aria-labelledby="execution-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="execution-heading">Execution</h2>
+      </div>
+      <pre class="neo-pre">{{ txn.execution | tojson(indent=2) }}</pre>
+    </section>
+    {% endif %}
+
+    {% if txn.receipt %}
+    <section class="neo-section" aria-labelledby="receipt-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="receipt-heading">Receipt summary</h2>
+        <a class="neo-link-button" href="/dashboard/transactions/{{ txn.id }}/receipt">Open full receipt →</a>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Receipt ID</div>
+          <div class="neo-detail-card__value"><code>{{ txn.receipt.get('receipt_id', '—') }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Executed at</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.95rem">
+            {{ txn.receipt.get('executed_at', '—') }}
+          </div>
+        </div>
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Signature</div>
+          <div class="neo-detail-card__value" style="font-family: ui-monospace, monospace; font-size: 0.85rem; word-break: break-all">
+            {{ txn.receipt.get('receipt_signature', '—') }}
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if txn.status == 'executed' %}
+    <section class="neo-section" aria-labelledby="writeback-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="writeback-heading">Accounting sandbox writeback</h2>
+        <span class="neo-section__hint">Local sandbox only · no ERP mutation</span>
+      </div>
+      <p class="neo-subtitle" style="margin-bottom: 16px">
+        Local accounting sandbox only. No ERP, bank, or ledger mutation performed.
+        After execution, ActionRail can create a draft bill JSON and audit packet JSON
+        for demonstration and integration-readiness.
+      </p>
+      {% if has_accounting_writeback %}
+      <p>
+        Writeback created.
+        <a class="neo-link-button" href="/dashboard/transactions/{{ txn.id }}/writeback/accounting-sandbox">
+          View Accounting Sandbox Writeback →
+        </a>
+      </p>
+      {% else %}
+      <p>No writeback yet. Use the action above to create a local sandbox draft bill.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="neo-section" aria-labelledby="raw-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="raw-heading">Raw transaction JSON</h2>
+        <span class="neo-section__hint">As stored</span>
+      </div>
+      <pre class="neo-pre">{{ txn.raw_json }}</pre>
+    </section>
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves</span>
+    </footer>
+
+  </main>
+</body>
+</html>

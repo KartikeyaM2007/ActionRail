@@ -1,0 +1,121 @@
+git status --ignoredgit status --ignored<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Accounting Sandbox Writeback — ActionRail Finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/transactions/{{ txn.id }}">← Back to transaction</a>
+        <h1 class="neo-title" style="margin-top: 16px">Accounting sandbox writeback</h1>
+        <p class="neo-subtitle">
+          Local accounting sandbox only. No ERP, bank, or ledger mutation performed.
+          This creates a draft bill JSON and audit packet JSON for demonstration and integration-readiness.
+        </p>
+      </div>
+    </header>
+
+    <div class="neo-review-warning" role="status">
+      <p class="neo-review-warning__title">Safety note — local sandbox only</p>
+      <p class="neo-review-warning__body">
+        Local accounting sandbox only. No ERP, bank, or ledger mutation performed.
+        This creates a draft bill JSON and audit packet JSON for demonstration and integration-readiness.
+        Real integrations (QuickBooks, Xero, Tally, Zoho, etc.) are a future phase.
+      </p>
+    </div>
+
+    {% if wb %}
+
+    <section class="neo-section" aria-labelledby="wb-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="wb-heading">Writeback result</h2>
+        <span class="neo-badge neo-badge--status-executed">{{ wb.status }}</span>
+      </div>
+      <dl class="neo-doc-summary">
+        <dt>Transaction ID</dt>
+        <dd><code>{{ txn.id }}</code></dd>
+        <dt>Provider</dt>
+        <dd class="neo-doc-summary__plain"><code>{{ wb.provider }}</code></dd>
+        <dt>Status</dt>
+        <dd class="neo-doc-summary__plain">{{ wb.status }}</dd>
+        <dt>Draft bill ID</dt>
+        <dd><code>{{ wb.external_id or '—' }}</code></dd>
+        <dt>Created at</dt>
+        <dd class="neo-doc-summary__plain">{{ wb.created_at }}</dd>
+        <dt>Draft bill reference</dt>
+        <dd class="neo-doc-summary__plain"><code>{{ draft_bill_ref }}</code></dd>
+        <dt>Audit packet reference</dt>
+        <dd class="neo-doc-summary__plain"><code>{{ audit_packet_ref }}</code></dd>
+        <dt>Safety note</dt>
+        <dd class="neo-doc-summary__plain">{{ wb.result.get('note', 'Local sandbox only. No ERP, bank, or ledger mutation performed.') }}</dd>
+      </dl>
+    </section>
+
+    {% if draft_bill %}
+    <section class="neo-section" aria-labelledby="draft-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="draft-heading">Draft bill JSON</h2>
+        <span class="neo-section__hint">Sandbox only · not submitted to any system</span>
+      </div>
+      <details class="neo-details">
+        <summary>Show draft bill JSON</summary>
+        <div class="neo-details__body">
+          <pre class="neo-pre neo-pre--small">{{ draft_bill | tojson(indent=2) }}</pre>
+        </div>
+      </details>
+    </section>
+    {% endif %}
+
+    {% if audit_packet %}
+    <section class="neo-section" aria-labelledby="audit-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="audit-heading">Audit packet JSON</h2>
+        <span class="neo-section__hint">Complete evidence record · checks and receipt included</span>
+      </div>
+      <details class="neo-details">
+        <summary>Show audit packet JSON</summary>
+        <div class="neo-details__body">
+          <pre class="neo-pre neo-pre--small">{{ audit_packet | tojson(indent=2) }}</pre>
+        </div>
+      </details>
+    </section>
+    {% endif %}
+
+    {% else %}
+
+    <div class="neo-alert neo-alert--empty" role="status">
+      <h2 class="neo-empty__title" style="margin-top: 0">No writeback yet</h2>
+      <p class="neo-empty__body">
+        The transaction must be executed before a writeback can be created.
+        Return to the transaction detail page and click
+        <strong>Create Accounting Sandbox Draft Bill</strong> after execution.
+      </p>
+      <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}">Back to transaction</a>
+    </div>
+
+    {% endif %}
+
+    <section class="neo-section">
+      <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}">← Back to transaction</a>
+      <a class="neo-btn neo-btn--ghost" href="/dashboard" style="margin-left: 12px">Dashboard</a>
+    </section>
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves · Local sandbox writeback only</span>
+    </footer>
+
+  </main>
+</body>
+</html>

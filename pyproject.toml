@@ -1,0 +1,14 @@
+[project]
+name = "actionrail-finance"
+version = "0.1.0"
+description = "Transaction runtime for finance AI agent actions"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.116.0",
+  "uvicorn>=0.35.0",
+  "pydantic>=2.11.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

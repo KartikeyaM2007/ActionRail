@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ActionRail Finance — Transaction Queue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+
+    <header class="neo-header">
+      <div>
+        <span class="neo-tag">Transaction Runtime · v{{ version }}</span>
+        <h1 class="neo-title" style="margin-top: 16px">
+          <span class="neo-logo">ActionRail</span>
+          <span style="margin-left: 12px">Finance</span>
+        </h1>
+        <p class="neo-subtitle">
+          Agent-first execution rail. Every risky finance action becomes a transaction:
+          preflight → decision → approval → execution → signed receipt.
+        </p>
+      </div>
+      <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
+        <a class="neo-btn neo-btn--ghost" href="/docs">Swagger</a>
+        <a class="neo-btn" href="/actionrail/manifest.json">Manifest</a>
+        <a class="neo-btn" href="/dashboard/invoices/upload">Upload real invoice</a>
+      </nav>
+    </header>
+
+    <section class="neo-grid neo-grid--stats" aria-label="Queue statistics">
+      <div class="neo-stat">
+        <div class="neo-stat__label">Total transactions</div>
+        <div class="neo-stat__value">{{ stats.total }}</div>
+      </div>
+      <div class="neo-stat neo-stat--secondary">
+        <div class="neo-stat__label">Approval required</div>
+        <div class="neo-stat__value">{{ stats.approval_required }}</div>
+      </div>
+      <div class="neo-stat neo-stat--muted">
+        <div class="neo-stat__label">Needs evidence</div>
+        <div class="neo-stat__value">{{ stats.needs_evidence }}</div>
+      </div>
+      <div class="neo-stat neo-stat--accent">
+        <div class="neo-stat__label" style="color: #fff">Blocked</div>
+        <div class="neo-stat__value" style="color: #fff">{{ stats.blocked }}</div>
+      </div>
+      <div class="neo-stat">
+        <div class="neo-stat__label">Executed</div>
+        <div class="neo-stat__value">{{ stats.executed }}</div>
+      </div>
+    </section>
+
+    <section class="neo-section" aria-labelledby="demo-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="demo-heading">Run demo preflight</h2>
+        <span class="neo-section__hint">Creates a real transaction · uses example payloads</span>
+      </div>
+      <p class="neo-subtitle" style="margin-top: 0; margin-bottom: 24px">
+        Each button submits a server-side preflight using the same engine the API uses.
+        After submission you'll be redirected to the transaction detail page.
+      </p>
+      <div class="neo-demo-grid">
+        <form class="neo-form-inline" method="post" action="/dashboard/demo/approval_required">
+          <div class="neo-detail-card">
+            <span class="neo-badge neo-badge--decision-approval_required">Approval required</span>
+            <h3 class="neo-detail-card__title">Approval required invoice</h3>
+            <p class="neo-detail-card__body">
+              Acme Services · ₹83,000 · contract present · evidence attached.
+              Should land as <code>approval_required</code>.
+            </p>
+            <button class="neo-btn" type="submit">Create approval-required invoice</button>
+          </div>
+        </form>
+        <form class="neo-form-inline" method="post" action="/dashboard/demo/duplicate_blocked">
+          <div class="neo-detail-card">
+            <span class="neo-badge neo-badge--decision-blocked">Blocked</span>
+            <h3 class="neo-detail-card__title">Duplicate invoice</h3>
+            <p class="neo-detail-card__body">
+              Same vendor + amount as a previously paid invoice (INV-1042 · ₹82,000).
+              Should land as <code>blocked</code>.
+            </p>
+            <button class="neo-btn" type="submit">Create duplicate invoice</button>
+          </div>
+        </form>
+        <form class="neo-form-inline" method="post" action="/dashboard/demo/missing_evidence">
+          <div class="neo-detail-card">
+            <span class="neo-badge neo-badge--decision-needs_more_evidence">Needs more evidence</span>
+            <h3 class="neo-detail-card__title">Missing evidence invoice</h3>
+            <p class="neo-detail-card__body">
+              AWS · ₹12,000 · no <code>evidence_urls</code>.
+              Should land as <code>needs_more_evidence</code>.
+            </p>
+            <button class="neo-btn" type="submit">Create missing-evidence invoice</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="neo-section" aria-labelledby="queue-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="queue-heading">Transaction queue</h2>
+        <span class="neo-section__hint">Most recent · 50 max</span>
+      </div>
+
+      {% if crowded %}
+      <p class="neo-queue-note">
+        Use <code>scripts/reset_demo_db.py</code> before recording a clean demo.
+      </p>
+      {% endif %}
+
+      {% if rows %}
+      <div class="neo-table-wrap" role="region" aria-label="Transactions" tabindex="0">
+        <table class="neo-table neo-table--compact">
+          <thead>
+            <tr>
+              <th scope="col">Transaction</th>
+              <th scope="col">Vendor</th>
+              <th scope="col">Amount</th>
+              <th scope="col">Decision</th>
+              <th scope="col">Risk</th>
+              <th scope="col">Status</th>
+              <th scope="col">View</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td><a class="neo-link-button" href="/dashboard/transactions/{{ row.id }}"><code>{{ row.id }}</code></a></td>
+              <td>{{ row.vendor or '—' }}</td>
+              <td>
+                {% if row.amount is not none %}
+                  {{ row.currency or '' }} {{ '{:,.0f}'.format(row.amount) }}
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                <span class="neo-badge neo-badge--decision-{{ row.decision }}">
+                  {{ row.decision|replace('_', ' ') }}
+                </span>
+              </td>
+              <td>
+                <span class="neo-badge neo-badge--risk-{{ row.risk }}">{{ row.risk }}</span>
+              </td>
+              <td>
+                <span class="neo-badge neo-badge--status-{{ row.status }}">{{ row.status }}</span>
+              </td>
+              <td>
+                <a class="neo-link-button" href="/dashboard/transactions/{{ row.id }}">View</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="neo-queue-note neo-queue-note--muted">
+        Agent, intent, action, and timestamps are on the transaction detail page.
+      </p>
+      {% else %}
+      <div class="neo-empty" role="status">
+        <span class="neo-empty__label">Empty queue</span>
+        <h3 class="neo-empty__title">No transactions yet</h3>
+        <p class="neo-empty__body">
+          Click one of the demo preflight buttons above to create a real ActionRail transaction.
+        </p>
+        <p class="neo-empty__body" style="margin-bottom: 8px"><strong>Recommended demo order:</strong></p>
+        <ol class="neo-empty__list">
+          <li>Approval Required Invoice</li>
+          <li>Duplicate Invoice</li>
+          <li>Missing Evidence Invoice</li>
+        </ol>
+      </div>
+      {% endif %}
+    </section>
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves</span>
+    </footer>
+
+  </main>
+</body>
+</html>

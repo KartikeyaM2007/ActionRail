@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtualenvs
+.venv/
+venv/
+
+# Local SQLite demo databases
+*.db
+
+# Kaggle credentials — never commit
+kaggle/
+kaggle.json
+**/kaggle.json
+.kaggle/
+
+# Local upload evidence storage
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Local datasets (never commit)
+data/datasets/*
+!data/datasets/.gitkeep
+
+# Kaggle invoice sample (never commit)
+data/datasets/kaggle-invoices-sample/*
+!data/datasets/kaggle-invoices-sample/.gitkeep
+
+# OCR reports (never commit)
+data/datasets/ocr_reports/*
+!data/datasets/ocr_reports/.gitkeep
+
+# Accounting sandbox outputs (never commit)
+data/accounting_sandbox/draft_bills/*
+!data/accounting_sandbox/draft_bills/.gitkeep
+data/accounting_sandbox/audit_packets/*
+!data/accounting_sandbox/audit_packets/.gitkeep
+
+# Environment files
+.env
+
+# Build artefacts
+dist/
+build/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/

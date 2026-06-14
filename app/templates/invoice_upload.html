@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload Invoice — ActionRail Finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard">← Back to queue</a>
+        <h1 class="neo-title" style="margin-top: 16px">Upload invoice</h1>
+        <p class="neo-subtitle">
+          Upload a real invoice PDF or image. ActionRail will extract fields from the file,
+          then show you a review screen before creating a transaction.
+          You confirm every field before anything is created.
+          Execution remains simulated. No real money moves.
+        </p>
+      </div>
+    </header>
+
+    {% if error %}
+    <div class="neo-alert neo-alert--error" role="alert">
+      <strong>Upload error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    <section class="neo-section" aria-labelledby="upload-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="upload-heading">Invoice file</h2>
+        <span class="neo-section__hint">PDF · PNG · JPG · JPEG</span>
+      </div>
+
+      <form method="post" action="/dashboard/invoices/upload" enctype="multipart/form-data">
+        <div class="neo-detail-card" style="margin-bottom: 32px; max-width: 640px">
+          <div class="neo-detail-card__label">Invoice file *</div>
+          <div class="neo-detail-card__value">
+            <input
+              class="neo-input"
+              type="file"
+              name="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              required
+              aria-label="Invoice file"
+            />
+            <p class="neo-queue-note--muted" style="margin-top: 8px">
+              For digital PDFs: text is extracted automatically.<br />
+              For images: OCR runs if Tesseract is installed — otherwise you fill in fields manually on the next screen.
+            </p>
+          </div>
+        </div>
+
+        <div class="neo-actions" style="margin-top: 8px">
+          <button class="neo-btn" type="submit">Upload and review</button>
+          <a class="neo-btn neo-btn--ghost" href="/dashboard">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves</span>
+    </footer>
+
+  </main>
+</body>
+</html>

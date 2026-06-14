@@ -1,0 +1,21 @@
+{
+  "agent_id": "finance_agent_demo",
+  "user_id": "controller_001",
+  "intent": "pay_invoice",
+  "action": "approve_invoice",
+  "invoice": {
+    "invoice_id": "INV-1045",
+    "vendor": "Acme Services",
+    "amount": 82000,
+    "currency": "INR",
+    "invoice_date": "2026-06-13",
+    "due_date": "2026-06-25",
+    "gst_number": "27ABCDE1234F1Z5",
+    "contract_id": "ctr_acme_2026",
+    "evidence_urls": ["https://evidence.local/invoices/INV-1045.pdf"],
+    "line_items": ["monthly development retainer"]
+  },
+  "constraints": {
+    "human_approval_before_payment": true
+  }
+}
