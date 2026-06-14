@@ -3,7 +3,17 @@
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
 
-- **Phase 5C — Approval workflow engine (done, this commit)**:
+- **Phase 5E â€” Compliance evidence packs, replay, and risk monitoring (done, this commit)**:
+  - `app/evidence_pack.py`: ZIP generation with manifest and SHA256 checksums.
+  - `app/replay.py`: Policy replay simulation to detect policy differences.
+  - `app/store.py`: `save_evidence_export` and `get_transaction_with_audit`.
+  - `app/main.py`: New endpoints `/evidence_pack` and `/replay` added.
+  - `app/templates/transaction_detail.html`: Risk monitor panel added to UI.
+  - Test suites updated with DB state isolation fix.
+  - QA Rules updated with Public Website Testing requirements.
+  - **Tests: 252/252 passing.**
+
+- **Phase 5C ï¿½ Approval workflow engine (done, this commit)**:
   - pp/approval_workflow.py: Workflow generation and maker-checker validation logic.
   - pp/main.py: Updated dashboard_approve and dashboard_execute to enforce 2-step rules.
   - pp/templates/transaction_detail.html: UI rendering for workflow status and pending steps.

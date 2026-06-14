@@ -13,3 +13,6 @@ Current SQLite tables in `app/store.py`:
 - `accounting_writebacks`: Stores the result of local sandbox ledger integration (draft bills).
 - `contract_evidence`: Uploaded files serving as contract proof, referencing `contracts`.
 - `invoices`: Extracted/simulated invoice records, referenced by transactions for history and deduplication.
+- \pi_clients\: Stores local API client identities, hashed secrets, scope lists, and revocation status for governing agent access.
+- \pi_request_events\: Stores timestamped logs of agent API calls for rate-limiting enforcement.
+- \idempotency_records\: Tracks completed agent API responses to ensure safe replays via \Idempotency-Key\ headers.

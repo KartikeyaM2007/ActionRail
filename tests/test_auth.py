@@ -246,7 +246,7 @@ def test_transaction_detail_shows_transaction_audit_events(client: TestClient):
     dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
     r = dash_get(client, f"/dashboard/transactions/{txn_id}", role="viewer")
     assert r.status_code == 200
-    assert "Transaction audit trail" in r.text
+    assert "Transaction timeline" in r.text
     assert "transaction_approved" in r.text
 
 

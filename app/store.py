@@ -24,9 +24,11 @@ def dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
-def loads(value: str | None, default: Any = None) -> Any:
+def loads(value: Any, default: Any = None) -> Any:
     if value is None:
         return default
+    if isinstance(value, (dict, list)):
+        return value
     return json.loads(value)
 
 
@@ -186,6 +188,51 @@ def init_db(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             decided_at TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS api_clients (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            client_key_hash TEXT NOT NULL,
+            client_key_prefix TEXT NOT NULL,
+            role TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            allowed_scopes_json TEXT NOT NULL,
+            rate_limit_per_minute INTEGER NOT NULL DEFAULT 60,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_used_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS idempotency_records (
+            id TEXT PRIMARY KEY,
+            scope TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            response_json TEXT NOT NULL,
+            status_code INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            UNIQUE(scope, idempotency_key)
+        );
+
+        CREATE TABLE IF NOT EXISTS api_request_events (
+            id TEXT PRIMARY KEY,
+            api_client_id TEXT,
+            route TEXT NOT NULL,
+            method TEXT NOT NULL,
+            status_code INTEGER,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS evidence_exports (
+            id TEXT PRIMARY KEY,
+            transaction_id TEXT NOT NULL,
+            actor_user_id TEXT,
+            actor_email TEXT,
+            pack_sha256 TEXT NOT NULL,
+            local_ref TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """
     )
     conn.commit()
@@ -340,6 +387,29 @@ def seed_demo(conn: sqlite3.Connection) -> None:
         ),
     )
     conn.commit()
+
+    # Seed demo API client
+    demo_client = conn.execute("SELECT id FROM api_clients WHERE id='client_demo'").fetchone()
+    if not demo_client:
+        import hashlib
+        # Use a deterministic hash for the demo client so tests can predict it or we can just ignore secret.
+        # "demo_secret_key"
+        key_hash = hashlib.pbkdf2_hmac("sha256", b"demo_secret_key", b"actionrail", 100000).hex()
+        conn.execute(
+            """
+            INSERT INTO api_clients (
+                id, name, client_key_hash, client_key_prefix, role,
+                allowed_scopes_json, rate_limit_per_minute, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "client_demo", "Local Demo Agent", key_hash, "sk_demo", "agent",
+                dumps(["preflight:create", "transactions:read", "receipts:read"]),
+                60, utc_now().isoformat(), utc_now().isoformat()
+            )
+        )
+        conn.commit()
+
     seed_demo_users(conn)
 
 
@@ -703,6 +773,149 @@ def list_audit_events(conn: sqlite3.Connection, *, limit: int = 100) -> list[dic
     return [_audit_row_to_dict(row) for row in rows]
 
 
+def list_audit_events_for_transaction(conn: sqlite3.Connection, transaction_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM audit_events WHERE target_id=? ORDER BY created_at DESC LIMIT ?",
+        (transaction_id, limit)
+    ).fetchall()
+    return [_audit_row_to_dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# API Client and Governance Helpers
+# ---------------------------------------------------------------------------
+
+def create_api_client(
+    conn: sqlite3.Connection,
+    client_id: str,
+    name: str,
+    client_key_hash: str,
+    client_key_prefix: str,
+    role: str,
+    allowed_scopes: list[str],
+    rate_limit_per_minute: int = 60
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO api_clients (
+            id, name, client_key_hash, client_key_prefix, role,
+            allowed_scopes_json, rate_limit_per_minute, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            client_id, name, client_key_hash, client_key_prefix, role,
+            dumps(allowed_scopes), rate_limit_per_minute, now, now
+        )
+    )
+    conn.commit()
+
+
+def get_api_client_by_key_prefix(conn: sqlite3.Connection, prefix: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM api_clients WHERE client_key_prefix = ?", (prefix,)).fetchone()
+    if not row:
+        return None
+    return dict(row)
+
+
+def get_api_client(conn: sqlite3.Connection, client_id: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM api_clients WHERE id = ?", (client_id,)).fetchone()
+    if not row:
+        return None
+    return dict(row)
+
+
+def list_api_clients(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = conn.execute("SELECT * FROM api_clients ORDER BY created_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_api_client_status(conn: sqlite3.Connection, client_id: str, is_active: bool) -> None:
+    conn.execute(
+        "UPDATE api_clients SET is_active = ?, updated_at = ? WHERE id = ?",
+        (1 if is_active else 0, utc_now().isoformat(), client_id)
+    )
+    conn.commit()
+
+
+def touch_api_client_last_used(conn: sqlite3.Connection, client_id: str) -> None:
+    conn.execute(
+        "UPDATE api_clients SET last_used_at = ? WHERE id = ?",
+        (utc_now().isoformat(), client_id)
+    )
+    conn.commit()
+
+
+def hash_request_body(body: bytes) -> str:
+    import hashlib
+    return hashlib.sha256(body).hexdigest()
+
+
+def save_idempotency_record(
+    conn: sqlite3.Connection,
+    record_id: str,
+    scope: str,
+    idempotency_key: str,
+    request_hash: str,
+    response_json: str,
+    status_code: int,
+    expires_at: str
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO idempotency_records (
+            id, scope, idempotency_key, request_hash, response_json, status_code, created_at, expires_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (record_id, scope, idempotency_key, request_hash, response_json, status_code, now, expires_at)
+    )
+    conn.commit()
+
+
+def get_idempotency_record(conn: sqlite3.Connection, scope: str, idempotency_key: str) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM idempotency_records WHERE scope = ? AND idempotency_key = ?",
+        (scope, idempotency_key)
+    ).fetchone()
+    if not row:
+        return None
+    return dict(row)
+
+
+def cleanup_expired_idempotency_records(conn: sqlite3.Connection) -> None:
+    now = utc_now().isoformat()
+    conn.execute("DELETE FROM idempotency_records WHERE expires_at < ?", (now,))
+    conn.commit()
+
+
+def record_api_request_event(
+    conn: sqlite3.Connection,
+    event_id: str,
+    api_client_id: str | None,
+    route: str,
+    method: str,
+    status_code: int | None
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO api_request_events (id, api_client_id, route, method, status_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (event_id, api_client_id, route, method, status_code, utc_now().isoformat())
+    )
+    conn.commit()
+
+
+def count_recent_api_requests(conn: sqlite3.Connection, api_client_id: str, minutes: int = 1) -> int:
+    cutoff = (utc_now() - timedelta(minutes=minutes)).isoformat()
+    row = conn.execute(
+        "SELECT COUNT(*) as count FROM api_request_events WHERE api_client_id = ? AND created_at >= ?",
+        (api_client_id, cutoff)
+    ).fetchone()
+    return row["count"] if row else 0
+
+
 def list_audit_events_for_transaction(
     conn: sqlite3.Connection, transaction_id: str, *, limit: int = 50
 ) -> list[dict[str, Any]]:
@@ -1015,3 +1228,50 @@ def mark_workflow_rejected(
         (now, transaction_id)
     )
     conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Evidence Export Helpers
+# ---------------------------------------------------------------------------
+
+def save_evidence_export(
+    conn: sqlite3.Connection,
+    *,
+    export_id: str,
+    transaction_id: str,
+    actor_user_id: str | None,
+    actor_email: str | None,
+    pack_sha256: str,
+    local_ref: str,
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO evidence_exports(
+            id, transaction_id, actor_user_id, actor_email,
+            pack_sha256, local_ref, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (export_id, transaction_id, actor_user_id, actor_email, pack_sha256, local_ref, now),
+    )
+    conn.commit()
+
+
+def list_evidence_exports_for_transaction(
+    conn: sqlite3.Connection, transaction_id: str
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM evidence_exports WHERE transaction_id=? ORDER BY created_at DESC",
+        (transaction_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_latest_evidence_export_for_transaction(
+    conn: sqlite3.Connection, transaction_id: str
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM evidence_exports WHERE transaction_id=? ORDER BY created_at DESC LIMIT 1",
+        (transaction_id,),
+    ).fetchone()
+    return dict(row) if row else None

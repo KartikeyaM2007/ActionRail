@@ -1891,3 +1891,128 @@ pytest -q
 ## What the user should send to ChatGPT
 
 Copy paste this whole latest ForKnow.md entry.
+---
+
+# Cursor Work Update: Phase 5D API Security
+
+## Date
+
+2026-06-14
+
+## Prompt I worked on
+
+Phase 5D: agent API security, idempotency, and request governance. Secure and govern the agent-facing JSON/API layer without breaking existing API success response shapes.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| pp/store.py | Added tables pi_clients, pi_request_events, idempotency_records. Added functions to get/list API clients, check idempotency records, and log request events. |
+| pp/api_security.py | New file. Middleware for extracting X-ActionRail-API-Key, matching hash with DB, rate-limiting, and checking scoped access. |
+| pp/main.py | Added idempotency check logic and updated endpoints to inject 
+equire_api_scope dependencies. Replaced serialization bugs in idempotency tracking logic with correct Pydantic functions. |
+| pp/admin_routes.py | Added routes to list, create, and revoke API clients via admin UI. |
+| pp/templates/admin_api_clients.html | New template to manage API clients. |
+| pp/templates/admin_index.html | Added nav link to API Clients section. |
+| scripts/reset_demo_db.py | Updated sequence to include new API client and idempotency tables. |
+| 	ests/test_api_security.py | Created test suite for API security covering invalid/valid keys, rate limits, scoped restrictions, revoked clients, and idempotency successes and conflicts. Adapted fixture pattern with _isolated_db. |
+
+## What I added
+
+- Local API Key hashing (PBKDF2 HMAC-SHA256).
+- Idempotency via Idempotency-Key headers on POST requests.
+- Rate limiting per API client per minute using SQLite event counting.
+- Scoped access logic (preflight:create, 	ransactions:read, etc.).
+- Admin UI for managing API clients.
+
+## What I modified
+
+- Main API endpoints secured with dependency injection without modifying original response JSON schemas.
+- SQLite schema for new tables.
+
+## What I did not change
+
+- No external OAuth or real payments were added.
+- Original success responses remained structurally identical.
+
+## Tests run
+
+`ash
+pytest -q
+`
+
+`	ext
+.............................................................................................................................................................................................................................
+221 passed in 100.25s
+`
+
+## Current status
+
+- App status: Local API Key security enforced with scoped roles.
+- Dashboard status: Admin UI allows managing API clients.
+- API status: Protected via keys, idempotent preflight.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest ForKnow.md entry.
+
+# Cursor Work Update: Phase 5E - Compliance Evidence Packs, Replay, and Risk Monitoring
+
+## Date
+2026-06-14
+
+## Prompt I worked on
+Phase 5E: compliance evidence packs, replay, and risk monitoring.
+Also updated QA task workflow per user rules.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| `app/main.py` | Added `/dashboard/transactions/{tx_id}/evidence_pack` (download zip) and `/dashboard/transactions/{tx_id}/replay` (view policy differences). Added risk monitor panel in transaction detail. |
+| `app/store.py` | Added `save_evidence_export` and `list_evidence_exports_for_transaction` to log when zip files are downloaded. Added `get_transaction_with_audit` helper. |
+| `app/evidence_pack.py` | New file. Implementation of `generate_evidence_zip` and `_build_manifest` generating zip bytes containing manifest, receipt, ledger trail, and policies. |
+| `app/replay.py` | New file. Implementation of `build_transaction_replay` that isolates and runs simulated checks to identify `differences` between original transaction processing and current active policy. |
+| `app/templates/transaction_detail.html` | Added "Compliance & Evidence" card with Evidence Pack download button, Replay Audit button, and Risk Flags section. |
+| `app/templates/transaction_replay.html` | New template for viewing the transaction replay results, highlighting what changed in the transaction context and policy. |
+| `tests/test_compliance.py` | Added unit tests covering evidence pack zip generation and manifest validation, and policy replay detection (simulating policy changes). Updated `_reset_db` fixture to properly clean in-memory tables between tests. |
+| `AGENTS.md` | Appended "Website Testing Coverage Rule" to ensure QA tasks explicitly cover website testing. |
+| `.cursor/rules/qa-task-workflow.mdc` | Added the Website Testing Coverage Rule. |
+| `New_task/_system/qa-agent-rules.md` | Added the Website Testing Coverage Rule. |
+| `New_task/_system/task-run-checklist.md` | Added the Website Testing Coverage Rule. |
+| `New_task/_system/report-template.md` | Added the Website Testing Coverage Rule. |
+| `New_task/task-template.md` | Added the Website Testing Coverage Rule. |
+
+## What I added
+- Evidence Pack download: Packages the transaction payload, signed receipt, audit trail, active policy, and vendor info into a `.zip` file for auditor handoff. Tracks export events in the DB.
+- Transaction Replay: Re-runs the policy checks against historical transaction data and compares decisions/steps, showing a diff to explain if "why would this transaction be approved/blocked today?".
+- Risk Monitor: Shows vendor risk status, duplicate detection results, and missing evidence warnings directly on the dashboard detail page.
+- QA task system rules emphasizing "Public Website Testing".
+
+## What I modified
+- Updated test environment setup so the DB is fully cleared between tests.
+
+## What I did not change
+- Core accounting logic, transaction states, receipt generation.
+
+## Tests run
+```bash
+pytest -q
+```
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 191.24s (0:03:11)
+```
+
+## Current status
+- App status: Runs cleanly.
+- Dashboard status: Added compliance section to transaction details.
+- API status: No breaking changes. New endpoints for evidence and replay.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+Copy paste this whole latest `ForKnow.md` entry.

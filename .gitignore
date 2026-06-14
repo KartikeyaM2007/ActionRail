@@ -42,6 +42,10 @@ data/accounting_sandbox/audit_packets/*
 data/contract_evidence/*
 !data/contract_evidence/.gitkeep
 
+# Audit exports (never commit)
+data/audit_exports/*
+!data/audit_exports/.gitkeep
+
 # Environment files
 .env
 

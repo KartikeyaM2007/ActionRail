@@ -78,6 +78,8 @@
         {% if has_receipt %}
         <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/receipt">View receipt</a>
         {% endif %}
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/evidence-pack">Evidence Pack</a>
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/replay">Replay</a>
         {% if txn.status == 'executed' and can_writeback %}
           {% if not has_accounting_writeback %}
         <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/writeback/accounting-sandbox">
@@ -392,19 +394,18 @@
     {% if transaction_audit_events %}
     <section class="neo-section" aria-labelledby="txn-audit-heading">
       <div class="neo-section__head">
-        <h2 class="neo-section__title" id="txn-audit-heading">Transaction audit trail</h2>
+        <h2 class="neo-section__title" id="txn-audit-heading">Transaction timeline</h2>
         <span class="neo-section__hint">{{ transaction_audit_events|length }} event(s)</span>
       </div>
-      <details class="neo-details">
-        <summary>Show audit events for this transaction</summary>
-        <div class="neo-details__body">
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
           <ul class="neo-note-list">
             {% for ev in transaction_audit_events %}
-            <li><code>{{ ev.created_at }}</code> · {{ ev.actor_email or '—' }} · <code>{{ ev.action }}</code></li>
+            <li><code>{{ ev.created_at }}</code> · {{ ev.actor_email or 'system' }} · <strong>{{ ev.action }}</strong></li>
             {% endfor %}
           </ul>
         </div>
-      </details>
+      </div>
     </section>
     {% endif %}
 

@@ -91,7 +91,7 @@ These are deliberate deferments, not oversights.
 - **Image OCR is optional, not installed by default.** Install `pytesseract` + the Tesseract binary for auto-extraction from image invoices. Without it, image uploads still work — enter fields manually on the review screen. See [`docs/OCR.md`](docs/OCR.md).
 - **Digital PDF text extraction is basic** — regex-based, works for machine-generated PDFs. Scanned-to-image PDFs with no embedded text need OCR.
 - **Amount extraction is intentionally conservative.** If amount confidence is low, the review screen asks for manual entry rather than creating a transaction with a guessed amount.
-- No production authentication or RBAC on the **JSON API** (dashboard has local demo auth; see below).
+- Local demo security on the **JSON API** via API Keys (Phase 5D), but no production secret manager or API Gateway.
 - No multi-tenant isolation.
 - No external financial mutation of any kind.
 
@@ -208,7 +208,7 @@ viewer@example.local / viewer123
 
 Roles: **viewer** (read dashboard/receipts) · **controller** (upload/review/demo preflight) · **approver** (approve/reject) · **executor** (execute + accounting writeback) · **auditor** (audit log) · **admin** (all).
 
-Dashboard POST forms are CSRF-protected. Per-action audit events are written to the local SQLite audit ledger. The JSON API remains unchanged (no auth/CSRF on API routes in this phase).
+Dashboard POST forms are CSRF-protected. Per-action audit events are written to the local SQLite audit ledger. The JSON API remains unchanged (JSON API routes are now protected by API Keys in Phase 5D).
 
 **Admin control plane (Phase 5B):** sign in as `admin@example.local` and open `/dashboard/admin` to manage vendors, contracts, policy thresholds, and contract evidence uploads. All admin changes are audited. Still local prototype only — not production finance automation.
 

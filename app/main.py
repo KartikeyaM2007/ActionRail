@@ -18,6 +18,8 @@ from app.auth import role_has_permission, verify_password
 from app.models import ApprovalDecision, PreflightRequest, Receipt
 from app.policy import get_transaction, receipt_id, run_preflight, sign_receipt
 from app.approval_workflow import plan_approval_workflow, enforce_maker_checker
+from app.api_security import require_api_scope
+from fastapi import Depends
 from app.store import (
     connect, dumps, get_accounting_writeback, get_uploaded_document, get_user_by_email,
     init_db, list_audit_events, list_audit_events_for_transaction, loads, save_accounting_writeback,
@@ -43,6 +45,8 @@ _UPLOAD_DIR = _REPO_DIR / "data" / "uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 _CONTRACT_EVIDENCE_DIR = _REPO_DIR / "data" / "contract_evidence"
 _CONTRACT_EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+_AUDIT_EXPORTS_DIR = _REPO_DIR / "data" / "audit_exports"
+_AUDIT_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 _ACCOUNTING_PROVIDER = "local_accounting_sandbox"
 app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET, max_age=60 * 60 * 24 * 7)
 app.mount("/static", StaticFiles(directory=_APP_DIR / "static"), name="static")
@@ -108,12 +112,50 @@ def manifest():
 
 
 @app.post("/actions/preflight")
-def preflight(req: PreflightRequest):
+def preflight(req: PreflightRequest, request: Request, api_client: dict | None = Depends(require_api_scope("preflight:create"))):
+    idempotency_key = request.headers.get("Idempotency-Key")
+    if idempotency_key:
+        from app.store import get_idempotency_record, save_idempotency_record, hash_request_body, utc_now
+        from datetime import timedelta
+        import json
+        
+        req_hash = hash_request_body(req.model_dump_json().encode())
+        record = get_idempotency_record(conn, "preflight", idempotency_key)
+        
+        if record:
+            if record["request_hash"] == req_hash:
+                control.write_audit_event(
+                    conn, request, action="idempotency_replayed", target_type="idempotency_key",
+                    target_id=idempotency_key, event={"scope": "preflight"}
+                )
+                return json.loads(record["response_json"])
+            else:
+                control.write_audit_event(
+                    conn, request, action="idempotency_conflict", target_type="idempotency_key",
+                    target_id=idempotency_key, event={"scope": "preflight"}
+                )
+                raise HTTPException(status_code=409, detail="idempotency_conflict")
+
+        resp = run_preflight(conn, req)
+        
+        expires_at = (utc_now() + timedelta(days=1)).isoformat()
+        import uuid
+        record_id = "idem_" + str(uuid.uuid4()).replace("-", "")
+        save_idempotency_record(
+            conn, record_id, "preflight", idempotency_key, req_hash,
+            resp.model_dump_json(), 200, expires_at
+        )
+        control.write_audit_event(
+            conn, request, action="idempotency_record_created", target_type="idempotency_key",
+            target_id=idempotency_key, event={"scope": "preflight"}
+        )
+        return resp
+
     return run_preflight(conn, req)
 
 
 @app.get("/transactions")
-def list_transactions(limit: int = 25):
+def list_transactions(limit: int = 25, api_client: dict | None = Depends(require_api_scope("transactions:read"))):
     rows = conn.execute(
         "SELECT id, agent_id, user_id, intent, action, decision, risk, status, created_at, updated_at "
         "FROM transactions ORDER BY created_at DESC LIMIT ?",
@@ -123,7 +165,7 @@ def list_transactions(limit: int = 25):
 
 
 @app.get("/transactions/{transaction_id}")
-def read_transaction(transaction_id: str):
+def read_transaction(transaction_id: str, api_client: dict | None = Depends(require_api_scope("transactions:read"))):
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
@@ -286,7 +328,7 @@ def execute_transaction(transaction_id: str):
 
 
 @app.get("/receipts/{transaction_id}")
-def get_receipt(transaction_id: str):
+def get_receipt(transaction_id: str, api_client: dict | None = Depends(require_api_scope("receipts:read"))):
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
@@ -1310,4 +1352,151 @@ def dashboard_writeback_accounting_get(request: Request, transaction_id: str):
             draft_bill_ref=draft_bill_ref,
             audit_packet_ref=audit_packet_ref,
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5E: Evidence Packs, Replay, Risk Monitor
+# ---------------------------------------------------------------------------
+from app.evidence_pack import build_transaction_evidence_pack
+from app.replay import build_transaction_replay
+from app.store import get_latest_evidence_export_for_transaction, save_evidence_export
+
+@app.get("/dashboard/transactions/{transaction_id}/evidence-pack", response_class=HTMLResponse)
+def dashboard_evidence_pack_get(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_evidence_pack", "evidence_pack", transaction_id)
+    if blocked:
+        return blocked
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    latest_export = get_latest_evidence_export_for_transaction(conn, transaction_id)
+    pack = build_transaction_evidence_pack(conn, transaction_id, user)
+    import json
+    pack_json = json.dumps(pack, indent=2, default=str)
+    
+    control.write_audit_event(
+        conn, request, action="evidence_pack_viewed", target_type="evidence_pack",
+        target_id=transaction_id, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "evidence_pack.html",
+        _dash_ctx(
+            request, 
+            txn=_detail_view_model(txn), 
+            pack=pack, 
+            pack_json=pack_json,
+            latest_export=latest_export,
+            can_export=role_has_permission(user["role"], "export_evidence_pack")
+        ),
+    )
+
+@app.post("/dashboard/transactions/{transaction_id}/evidence-pack/export")
+def dashboard_evidence_pack_export(
+    request: Request, transaction_id: str, csrf_token: str = Form(default="")
+):
+    user, blocked = _dash_guard(request, "export_evidence_pack", "evidence_pack", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "evidence_pack", transaction_id)
+    if csrf_resp:
+        return csrf_resp
+        
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    pack = build_transaction_evidence_pack(conn, transaction_id, user)
+    export_id = f"exp_{uuid.uuid4().hex[:12]}"
+    filename = f"{transaction_id}_{export_id}.json"
+    dest = _AUDIT_EXPORTS_DIR / filename
+    
+    with open(dest, "w", encoding="utf-8") as f:
+        json.dump(pack, f, indent=2, ensure_ascii=False)
+        
+    local_ref = f"local://audit_exports/{filename}"
+    
+    save_evidence_export(
+        conn,
+        export_id=export_id,
+        transaction_id=transaction_id,
+        actor_user_id=user["id"],
+        actor_email=user["email"],
+        pack_sha256=pack["evidence_pack_sha256"],
+        local_ref=local_ref,
+    )
+    
+    control.write_audit_event(
+        conn, request, action="evidence_pack_exported", target_type="evidence_pack",
+        target_id=transaction_id, event={"export_id": export_id, "local_ref": local_ref}, actor=user,
+    )
+    return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}/evidence-pack", status_code=303)
+
+@app.get("/dashboard/transactions/{transaction_id}/replay", response_class=HTMLResponse)
+def dashboard_replay_get(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_transaction_replay", "transaction_replay", transaction_id)
+    if blocked:
+        return blocked
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    replay = build_transaction_replay(conn, transaction_id)
+    policy_changed = "unchanged" not in replay.get("differences", [])
+    replay_view = {
+        "original_decision": replay["original_state"]["decision"],
+        "replay_decision": replay["current_state"]["decision"],
+        "differences": [d for d in replay.get("differences", []) if d != "unchanged"],
+        "policy_changed": policy_changed
+    }
+    
+    control.write_audit_event(
+        conn, request, action="transaction_replayed", target_type="transaction",
+        target_id=transaction_id, event={"differences": replay["differences"]}, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "transaction_replay.html",
+        _dash_ctx(request, txn=_detail_view_model(txn), replay=replay_view),
+    )
+
+@app.get("/dashboard/risk", response_class=HTMLResponse)
+def dashboard_risk_monitor(request: Request):
+    user, blocked = _dash_guard(request, "view_risk_monitor", "risk_monitor")
+    if blocked:
+        return blocked
+        
+    rows = conn.execute("SELECT decision, status, COUNT(*) AS n FROM transactions GROUP BY decision, status").fetchall()
+    total_txns = 0
+    blocked_txns = 0
+    needs_evidence_txns = 0
+    
+    for row in rows:
+        n = row["n"]
+        total_txns += n
+        if row["decision"] == "blocked" or row["status"] == "blocked":
+            blocked_txns += n
+        if row["decision"] == "needs_more_evidence":
+            needs_evidence_txns += n
+            
+    recent_audit_events = list_audit_events(conn, limit=100)
+    risk_events = [ev for ev in recent_audit_events if "denied" in ev["action"] or ev["action"] == "login_failed"]
+
+    metrics = {
+        "total_transactions": total_txns,
+        "blocked_transactions": blocked_txns,
+        "needs_evidence": needs_evidence_txns,
+        "recent_security_events": len(risk_events)
+    }
+
+    control.write_audit_event(
+        conn, request, action="risk_monitor_viewed", target_type="risk_monitor",
+        target_id=None, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "risk_monitor.html",
+        _dash_ctx(request, metrics=metrics, risk_events=risk_events[:20]),
     )

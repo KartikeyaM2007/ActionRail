@@ -30,6 +30,10 @@ from app.store import DB_PATH, connect, init_db, seed_demo  # noqa: E402
 
 # Tables this project owns. Listed in dependency-safe order (children first).
 PROJECT_TABLES: tuple[str, ...] = (
+    "api_request_events",
+    "idempotency_records",
+    "api_clients",
+    "evidence_exports",
     "audit_events",
     "contract_evidence",
     "accounting_writebacks",

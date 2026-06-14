@@ -6,6 +6,50 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-14 — Compliance evidence packs, replay, and risk monitoring (Phase 5E)
+
+### Added
+- Downloadable evidence packs (ZIP) containing transaction JSON, signed receipt, audit ledger trail, active policies, and vendor context.
+- Historical policy replay to identify why an old transaction's decision would differ from the current policy.
+- Transaction risk monitor panel showing real-time vendor risk, missing evidence flags, and duplicate invoice warnings.
+- QA task system rules explicitly requiring Public Website Testing.
+
+### Changed
+- Refactored test harness `_reset_db` to strictly clear the in-memory database between tests, preventing state bleeding across the test suite.
+
+### Tests
+```bash
+pytest -q
+```
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 191.24s (0:03:11)
+```
+
+---
+
+## 2026-06-14 — API Security and Idempotency (Phase 5D)
+
+### Added
+- Local API Key hashing (PBKDF2 HMAC-SHA256).
+- Idempotency via `Idempotency-Key` headers on POST requests.
+- Rate limiting per API client per minute using SQLite event counting.
+- Scoped access logic (`preflight:create`, `transactions:read`, etc.).
+- Admin UI for managing API clients.
+
+### Changed
+- Main API endpoints secured with dependency injection without modifying original response JSON schemas.
+
+### Tests
+```bash
+pytest -q
+.............................................................................................................................................................................................................................
+221 passed in 100.25s
+```
+
 ---
 
 ## 2026-06-14 — Context-retention and Antigravity handoff pass

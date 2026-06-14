@@ -25,7 +25,8 @@ Living handoff doc for the next Cursor model/chat picking up ActionRail Finance.
 - **Phase 5A — Authenticated control plane (done)**: local dashboard login (`/login`), six demo roles with RBAC, CSRF on dashboard POST forms, audit ledger (`/dashboard/audit`), transaction-level audit trail on detail pages. JSON API unchanged. **Tests: 175/175 passing.**
 - **Phase 5B — Policy admin, vendor onboarding, contract evidence (done)**: admin UI at `/dashboard/admin` for vendors, contracts, policy thresholds, contract evidence upload. All admin changes audited. **Tests: 196/196 passing.**
 - **Context-retention and handoff pass (done)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
-- No other work-in-progress.
+- **Phase 5D � API Security and Idempotency (done)**: Local API Keys, scoped access roles, rate limiting, and idempotency handling. **Tests: 221/221 passing.**`n- No other work-in-progress.
+- **Phase 5E — Compliance evidence packs, replay, and risk monitoring (done)**: Added evidence zip export, historical policy replay, and transaction risk monitor. **Tests: 252/252 passing.**
 
 ---
 
@@ -232,7 +233,7 @@ Statuses on transactions: `preflighted`, `approved`, `rejected`, `executed`, `bl
 In priority order (mirrors `TASKS.md`):
 
 1. **Phase 5C — Approval workflow engine** (see `docs/NEXT_PHASE_5C_PROMPT.md`): multi-step workflows, maker-checker separation, and execution gating.
-2. **Phase 2B � Image OCR** (per `PROJECT.md` section 16) — idempotent receipt, intent-lock conflict + expiry, action-not-in-allowed_actions, GST mismatch, contract overflow, critical-amount senior approval.
+2. **Phase 2B � Image OCR** (per `PROJECT.md` section 16) — idempotent receipt, intent-lock conflict + expiry, action-not-in-allowed_actions, GST mismatch, contract overflow, critical-amount senior approval.
 3. **Capture demo screenshots** per `docs/screenshots/README.md` (7 core + 4 real-upload + optional writeback `12` + post-writeback detail `13`).
 4. **Push to GitHub** — run through `docs/RELEASE_CHECKLIST.md` first.
 5. Clean up `app/cli.py`.

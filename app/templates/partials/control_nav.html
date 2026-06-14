@@ -8,6 +8,7 @@
   {% endif %}
   {% if can_view_admin %}
   <a class="neo-btn neo-btn--ghost" href="/dashboard/admin">Admin</a>
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/risk">Risk Monitor</a>
   {% endif %}
   <form class="neo-form-inline" method="post" action="/logout">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />

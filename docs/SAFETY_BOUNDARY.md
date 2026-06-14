@@ -113,23 +113,29 @@ The dashboard requires sign-in with seeded demo users (`users` table). This is *
 - Stdlib PBKDF2 password hashing only (`app/auth.py`).
 - Session cookie via `ACTIONRAIL_SESSION_SECRET` (dev fallback in code).
 - RBAC on dashboard routes; JSON API unchanged.
-- CSRF on dashboard POST forms.
+- CSRF tokens on all dashboard POST forms.
 - Audit ledger in SQLite (`audit_events`).
 
-Production still requires real identity, secret management, and immutable audit storage.
+Local JSON API routes are now protected by `X-ActionRail-API-Key` using local hashes (Phase 5D). Production still requires real identity, secret management, API gateways, and immutable audit storage.
 
 ---
 
 ## Admin-managed finance data (Phase 5B)
 
-Vendors, contracts, and policy thresholds can be managed via `/dashboard/admin` (admin role only). This is still a **local SQLite prototype**:
+**Phase 5B admin control plane (local demo):**
 
-- Vendor onboarding with verification status and risk tier.
-- Contract registration with limits, dates, and local evidence references.
-- Editable policy thresholds (approval, contract evidence, duplicate window, intent lock TTL).
-- All admin mutations write audit events.
+- `/dashboard/admin` — vendor onboarding, contract registration, policy thresholds (admin only).
+- Vendor status: `verified`, `pending_review`, `blocked` — only verified passes `vendor_verified`.
+- Contract status: `active`, `inactive`, `expired` — inactive/expired fail `contract_match`.
+- Contract evidence stored under `data/contract_evidence/` (gitignored, not served publicly).
+- Policy edits affect future preflights only; existing transactions unchanged.
 
-Production would additionally require migration tooling, durable audit storage, compliance review, and real identity/RBAC policy administration — not demo passwords.
+**Phase 5D agent API security (local demo):**
+
+- `X-ActionRail-API-Key` headers matching `api_clients` table using PBKDF2 HMAC-SHA256 hashes.
+- Idempotency handling via `Idempotency-Key` headers on POST requests.
+- Rate limiting per API client using SQLite event counting.
+- This is a local demo security layer. Production still requires a secret manager and API gateway. 
 
 ---
 

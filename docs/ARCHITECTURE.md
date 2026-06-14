@@ -38,11 +38,14 @@ Readable overview for GitHub reviewers, interviewers, and the next developer pic
 
 ### Agent API (primary)
 
-1. `POST /actions/preflight` — agent submits intent + invoice payload.
-2. Policy engine runs checks → returns decision + transaction ID.
-3. If `approval_required`, human calls `POST /approvals/{id}/approve` or rejects.
-4. If executable, agent or human calls `POST /actions/{id}/execute`.
-5. `GET /receipts/{id}` — signed HMAC receipt over canonical JSON.
+1. **Authentication**: `X-ActionRail-API-Key` headers are verified against local `api_clients` using PBKDF2 HMAC-SHA256.
+2. **Rate Limiting**: Checked via timestamped logs in `api_request_events`.
+3. **Idempotency**: Handled via `Idempotency-Key` tracking in `idempotency_records`.
+4. `POST /actions/preflight` — agent submits intent + invoice payload.
+5. Policy engine runs checks → returns decision + transaction ID.
+6. If `approval_required`, human calls `POST /approvals/{id}/approve` or rejects.
+7. If executable, agent or human calls `POST /actions/{id}/execute`.
+8. `GET /receipts/{id}` — signed HMAC receipt over canonical JSON.
 
 ### Dashboard (secondary, same backend)
 
@@ -95,6 +98,7 @@ An executed transaction may still show `preflight decision = approval_required` 
 | `intent_locks` | Prevents concurrent agent work on same invoice intent |
 | `uploaded_documents` | Local invoice files + extraction/OCR metadata |
 | `accounting_writebacks` | Writeback metadata (idempotent per transaction + provider) |
+| `api_clients`, `api_request_events`, `idempotency_records` | API Security identity, scoping, rate-limiting, and idempotency logic |
 
 Local files:
 
