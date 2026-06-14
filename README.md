@@ -76,9 +76,11 @@ The primitive is proved when the three demo flows all behave correctly. That is 
 
 ## Current completion status
 
-ActionRail Finance is MVP-complete as a local execution-control prototype with a **local control-plane foundation** (login, RBAC, CSRF, audit ledger on dashboard routes). It demonstrates invoice evidence intake, review, policy preflight, approval, simulated execution, signed receipts, and local accounting sandbox writeback. It is not production finance automation.
+ActionRail Finance is MVP-complete as a local execution-control prototype with a **local control-plane foundation** (login, RBAC, CSRF, audit ledger on dashboard routes). It demonstrates invoice evidence intake, review, policy preflight, approval, simulated execution, signed receipts, and local accounting sandbox writeback. It is not production finance automation. Phase 6A release hardening is complete, featuring robust security monitoring, evidence packs, policy replay, and strict data isolation.
 
 See [`docs/PROJECT_COMPLETION.md`](docs/PROJECT_COMPLETION.md) for the full completion checklist.
+
+> **CRITICAL DISCLAIMER:** NO REAL MONEY MOVES EVER in this codebase. Execution is strictly simulated. Do not connect real bank accounts, real ERP production databases, or external ledgers to this implementation.
 
 ## What it does not do yet
 
@@ -96,6 +98,19 @@ These are deliberate deferments, not oversights.
 - No external financial mutation of any kind.
 
 The demo-execution boundary is codified in the code itself: `Demo execution only. No real bank or ledger mutation performed.` That string is part of every signed receipt's payload until a sandbox integration is explicitly built.
+
+## Current complete local demo
+
+1. Login
+2. Upload/review invoice
+3. Preflight
+4. Approval workflow
+5. Execute simulated action
+6. View signed receipt
+7. Create accounting sandbox writeback
+8. Export evidence pack
+9. View replay
+10. View risk monitor
 
 ## Architecture
 

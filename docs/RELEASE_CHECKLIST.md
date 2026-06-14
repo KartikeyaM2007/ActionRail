@@ -191,3 +191,22 @@ git push
 - [ ] Screenshots captured or intentionally deferred (see [`docs/screenshots/README.md`](screenshots/README.md)).
 - [ ] GitHub repo pushed.
 - [ ] Optional release tag created (e.g. `v0.1.0-mvp`).
+
+---
+
+## 13. Final demo checklist
+
+- [ ] Full pytest passes
+- [ ] Reset script works
+- [ ] Demo users documented
+- [ ] Admin credentials documented as local demo only
+- [ ] API secure mode documented
+- [ ] Evidence export directory ignored
+- [ ] Contract evidence directory ignored
+- [ ] Uploaded invoice directory ignored
+- [ ] Dataset directory ignored
+- [ ] Screenshots optional but documented
+- [ ] No secrets committed
+- [ ] No DB committed
+- [ ] GitHub topics and description ready
+

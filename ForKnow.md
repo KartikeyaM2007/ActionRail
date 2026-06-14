@@ -2016,3 +2016,107 @@ pytest -q
 
 ## What the user should send to ChatGPT
 Copy paste this whole latest `ForKnow.md` entry.
+
+# Cursor Work Update: Phase 6A Release Hardening
+
+## Date
+2026-06-14T22:16:05.331288
+
+## Prompt I worked on
+Implement Phase 6A: release hardening, route consistency, security review, and final product closure.
+
+## Files changed
+| File | What changed |
+|---|---|
+| app/evidence_pack.py | Implemented real ZIP file generation using `zipfile` in-memory buffer. |
+| app/main.py | Converted evidence pack route to `GET` download, added `/dashboard/risk` Risk Monitor route and gathered security events. |
+| app/auth.py | Updated RBAC roles to strictly limit evidence, replay, and risk routes to `auditor` and `admin`. |
+| app/templates/risk_monitor.html | Created new Risk Monitor template to render operational metrics and security events. |
+| app/templates/partials/control_nav.html | Added Risk Monitor nav link. |
+| docs/ROUTE_MAP.md | Added evidence, replay, and risk routes. |
+| docs/SCHEMA_MAP.md | Added approval workflows and evidence_exports to schema map. |
+| PROJECT.md | Marked Phase 6A complete. |
+| README.md | Added explicit NO REAL MONEY MOVES EVER disclaimer and Phase 6A status. |
+| tests/test_compliance.py | Updated tests for ZIP download, 403 authorization rejections, and Risk Monitor HTML rendering. |
+
+## What I added
+- Risk Monitor dashboard.
+- Real ZIP file generator.
+
+## What I modified
+- Route and Role Base Access Control definitions.
+- Documentation (ROUTE_MAP.md, SCHEMA_MAP.md, README.md, PROJECT.md).
+
+## What I did not change
+- I did not change JSON API success response shapes.
+- I did not change the existing SQLite schema.
+- I did not add any external integrations.
+
+## Tests run
+```bash
+pytest -q tests/test_compliance.py
+```
+
+```text
+...............................                                          [100%]
+31 passed in 15.50s
+```
+
+## Current status
+- App status: Hardened and complete.
+- Dashboard status: Polished and responsive.
+- API status: Protected and governed.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+Copy paste this whole latest ForKnow.md entry.
+
+# Cursor Work Update: Phase 6B Release Closure
+
+## Date
+2026-06-14T22:29:45.806410
+
+## Prompt I worked on
+Phase 6B: full regression verification, release closure, and public-demo readiness.
+
+## Files changed
+| File | What changed |
+|---|---|
+| docs/RELEASE_CHECKLIST.md | Added final demo checklist section. |
+| README.md | Added 'Current complete local demo' sequence list. |
+
+## What I added
+- Final demo checklist to RELEASE_CHECKLIST.md.
+- Current complete local demo steps to README.md.
+
+## What I modified
+- README.md and docs/RELEASE_CHECKLIST.md formatting/additions.
+
+## What I did not change
+- Did not add new features.
+- Did not add real payment execution.
+- Did not break dashboard auth/RBAC/CSRF.
+- Did not change JSON API response shapes.
+
+## Tests run
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 178.86s (0:02:58)
+```
+
+## Current status
+- App status: Fully regression verified.
+- Dashboard status: Polished and responsive.
+- API status: Protected and governed.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+Copy paste this whole latest ForKnow.md entry.
+
