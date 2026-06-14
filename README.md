@@ -112,6 +112,13 @@ The demo-execution boundary is codified in the code itself: `Demo execution only
 9. View replay
 10. View risk monitor
 
+## Asset Links
+
+- [Demo Video Script](docs/DEMO_VIDEO_SCRIPT.md)
+- [GitHub Publishing Checklist](docs/GITHUB_PUBLISHING.md)
+- [Security Policy](SECURITY.md)
+
+
 ## Architecture
 
 ```text

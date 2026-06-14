@@ -6,13 +6,43 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-14 — Public GitHub/demo asset polish (Phase 6C)
+
+### Added
+- `docs/DEMO_VIDEO_SCRIPT.md` with full demonstration script.
+- `docs/GITHUB_PUBLISHING.md` containing final checklist and repo metadata.
+- `SECURITY.md` detailing the explicit local prototype boundary.
+
+### Changed
+- Finalized canonical screenshot list in `docs/screenshots/README.md`.
+- Appended Phase 6C tasks to `docs/RELEASE_CHECKLIST.md`.
+- Added demo asset links to `README.md`.
+
+---
+
+## 2026-06-14 — Release hardening, route consistency, security review, and final product closure (Phase 6A)
+
+### Added
+- Risk Monitor dashboard route (`/dashboard/risk`) protected by auditor/admin role.
+- Security event capture in Risk Monitor (login failures, API auth failures, idempotency conflicts, approval separation denials).
+- Strict data isolation tests for compliance.
+
+### Changed
+- Evidence packs now correctly generate as real ZIP files (`application/zip`) instead of dummy text.
+- Evidence pack endpoint moved to `GET` for safe browser downloading.
+- Updated `ROUTE_MAP.md`, `SCHEMA_MAP.md`, and `README.md` to reflect Phase 6A completion and correct routes.
+
+### Fixed
+- Fixed dashboard auth scopes so `view_evidence_pack`, `export_evidence_pack`, `view_transaction_replay`, and `view_risk_monitor` are strictly limited to `auditor` and `admin` roles, removing access for standard viewers.
+
+
+
 ## 2026-06-14 — Compliance evidence packs, replay, and risk monitoring (Phase 5E)
 
 ### Added
 - Downloadable evidence packs (ZIP) containing transaction JSON, signed receipt, audit ledger trail, active policies, and vendor context.
 - Historical policy replay to identify why an old transaction's decision would differ from the current policy.
 - Transaction risk monitor panel showing real-time vendor risk, missing evidence flags, and duplicate invoice warnings.
-- QA task system rules explicitly requiring Public Website Testing.
 
 ### Changed
 - Refactored test harness `_reset_db` to strictly clear the in-memory database between tests, preventing state bleeding across the test suite.

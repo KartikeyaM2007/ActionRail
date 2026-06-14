@@ -210,3 +210,13 @@ git push
 - [ ] No DB committed
 - [ ] GitHub topics and description ready
 
+---
+
+## 14. Phase 6C Polish Checklist
+
+- [ ] Demo video script created (`docs/DEMO_VIDEO_SCRIPT.md`)
+- [ ] Screenshot list finalized (`docs/screenshots/README.md`)
+- [ ] Security note present (`SECURITY.md`)
+- [ ] GitHub publishing checklist present (`docs/GITHUB_PUBLISHING.md`)
+- [ ] Full `pytest` expected before public release
+- [ ] No secrets/DB/uploads/datasets committed

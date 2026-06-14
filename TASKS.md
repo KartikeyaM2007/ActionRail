@@ -2,6 +2,11 @@
 
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
+- **Phase 6C — Public GitHub/demo asset polish (done, this commit)**:
+  - Added `docs/DEMO_VIDEO_SCRIPT.md`.
+  - Added `docs/GITHUB_PUBLISHING.md`.
+  - Added `SECURITY.md`.
+  - Updated screenshot list.
 
 - **Phase 5E — Compliance evidence packs, replay, and risk monitoring (done, this commit)**:
   - `app/evidence_pack.py`: ZIP generation with manifest and SHA256 checksums.
@@ -10,7 +15,6 @@ Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md`
   - `app/main.py`: New endpoints `/evidence_pack` and `/replay` added.
   - `app/templates/transaction_detail.html`: Risk monitor panel added to UI.
   - Test suites updated with DB state isolation fix.
-  - QA Rules updated with Public Website Testing requirements.
   - **Tests: 252/252 passing.**
 
 - **Phase 5C � Approval workflow engine (done, this commit)**:

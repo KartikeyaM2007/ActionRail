@@ -2120,3 +2120,57 @@ pytest -q
 ## What the user should send to ChatGPT
 Copy paste this whole latest ForKnow.md entry.
 
+
+# Cursor Work Update: Phase 6C Public GitHub/Demo Asset Polish
+
+## Date
+2026-06-14T22:49:30.948516
+
+## Prompt I worked on
+Phase 6C: public GitHub/demo asset polish. Preparing the repo for public GitHub/demo review without changing core app behavior.
+
+## Files changed
+| File | What changed |
+|---|---|
+| docs/DEMO_VIDEO_SCRIPT.md | Created new file with a polished 2 to 3 minute demo video script. |
+| docs/screenshots/README.md | Updated the canonical screenshot list and capture flow. |
+| docs/GITHUB_PUBLISHING.md | Created new file with the GitHub publishing checklist and repo metadata. |
+| SECURITY.md | Created new file outlining the local prototype safety boundary. |
+| README.md | Added links to the new documentation assets. |
+| docs/RELEASE_CHECKLIST.md | Added Phase 6C checklist items. |
+| TASKS.md | Marked Phase 6C as complete. |
+| CHANGELOG.md | Added entry for Phase 6C. |
+| HANDOFF.md | Updated handoff status to reflect completion. |
+
+## What I added
+- docs/DEMO_VIDEO_SCRIPT.md`n- docs/GITHUB_PUBLISHING.md`n- SECURITY.md`n
+## What I modified
+- docs/screenshots/README.md`n- docs/RELEASE_CHECKLIST.md`n- README.md`n- Memory files.
+
+## What I did not change
+- Did not add backend features.
+- Did not change JSON API response shapes.
+- Did not add external integrations or real payments.
+
+## Tests run
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 190.18s (0:03:10)
+```
+
+## Current status
+- App status: Fully ready for public GitHub publishing.
+- Dashboard status: Clean and unchanged.
+- API status: Unchanged.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+Copy paste this whole latest ForKnow.md entry.
+
