@@ -6,6 +6,9 @@
   {% if can_view_audit %}
   <a class="neo-btn neo-btn--ghost" href="/dashboard/audit">Audit log</a>
   {% endif %}
+  {% if can_view_admin %}
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/admin">Admin</a>
+  {% endif %}
   <form class="neo-form-inline" method="post" action="/logout">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <button class="neo-btn neo-btn--ghost" type="submit">Logout</button>

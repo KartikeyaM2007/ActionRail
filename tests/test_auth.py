@@ -20,6 +20,7 @@ def _isolated_db(tmp_path, monkeypatch):
     fresh = store.connect(tmp_path / "test.db")
     store.init_db(fresh)
     store.seed_demo(fresh)
+    store.update_policy_settings(fresh, require_contract_above=100000)
     monkeypatch.setattr(main, "conn", fresh)
     upload_dir = tmp_path / "uploads"
     upload_dir.mkdir()

@@ -33,6 +33,7 @@ Sign in with local demo credentials (see README). For a multi-role walkthrough:
 2. **approver@example.local** — approve the transaction.
 3. **executor@example.local** — execute and create accounting sandbox writeback.
 4. **auditor@example.local** — open `/dashboard/audit` and confirm audit events.
+5. **admin@example.local** — open `/dashboard/admin`, create vendor + contract, upload evidence, adjust policy threshold.
 
 Reset before recording:
 

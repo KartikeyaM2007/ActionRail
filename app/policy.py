@@ -34,28 +34,37 @@ def check_vendor(conn, req: PreflightRequest) -> CheckResult:
             message="Vendor is not known or verified.",
             evidence={"vendor": req.invoice.vendor},
         )
-    if not row["verified"]:
+    vendor = dict(row)
+    status = vendor.get("status") or ("verified" if vendor.get("verified") else "pending_review")
+    if status == "blocked":
+        return CheckResult(
+            name="vendor_verified",
+            status="failed",
+            message="Vendor is blocked.",
+            evidence={"vendor": vendor["name"], "status": status},
+        )
+    if status != "verified":
         return CheckResult(
             name="vendor_verified",
             status="failed",
             message="Vendor exists but is not verified.",
-            evidence={"vendor": row["name"], "risk_level": row["risk_level"]},
+            evidence={"vendor": vendor["name"], "status": status, "risk_level": vendor["risk_level"]},
         )
     gst_match = True
-    if req.invoice.gst_number and row["gst_number"]:
-        gst_match = req.invoice.gst_number == row["gst_number"]
+    if req.invoice.gst_number and vendor["gst_number"]:
+        gst_match = req.invoice.gst_number == vendor["gst_number"]
     if not gst_match:
         return CheckResult(
             name="vendor_verified",
             status="warning",
             message="Vendor is verified, but GST number does not match stored vendor record.",
-            evidence={"expected_gst": row["gst_number"], "received_gst": req.invoice.gst_number},
+            evidence={"expected_gst": vendor["gst_number"], "received_gst": req.invoice.gst_number},
         )
     return CheckResult(
         name="vendor_verified",
         status="passed",
         message="Vendor is verified.",
-        evidence={"vendor": row["name"], "gst_number": row["gst_number"]},
+        evidence={"vendor": vendor["name"], "gst_number": vendor["gst_number"]},
     )
 
 
@@ -107,32 +116,58 @@ def check_contract(conn, req: PreflightRequest, policy: dict[str, Any]) -> Check
             evidence={"threshold": require_contract_above, "amount": req.invoice.amount},
         )
     row = conn.execute("SELECT * FROM contracts WHERE id=?", (req.invoice.contract_id,)).fetchone()
-    if not row or not row["active"]:
+    if not row:
         return CheckResult(
             name="contract_match",
             status="failed",
             message="Contract is missing or inactive.",
             evidence={"contract_id": req.invoice.contract_id},
         )
-    if row["vendor_name"].lower() != req.invoice.vendor.lower():
+    contract = dict(row)
+    status = contract.get("status") or ("active" if contract.get("active") else "inactive")
+    if status != "active":
+        return CheckResult(
+            name="contract_match",
+            status="failed",
+            message="Contract is missing or inactive.",
+            evidence={"contract_id": req.invoice.contract_id, "status": status},
+        )
+    end_date = contract.get("end_date")
+    if end_date:
+        try:
+            from datetime import date
+            if date.fromisoformat(str(end_date)[:10]) < utc_now().date():
+                return CheckResult(
+                    name="contract_match",
+                    status="failed",
+                    message="Contract has expired.",
+                    evidence={"contract_id": req.invoice.contract_id, "end_date": end_date},
+                )
+        except ValueError:
+            pass
+    if contract["vendor_name"].lower() != req.invoice.vendor.lower():
         return CheckResult(
             name="contract_match",
             status="failed",
             message="Contract vendor does not match invoice vendor.",
-            evidence={"contract_vendor": row["vendor_name"], "invoice_vendor": req.invoice.vendor},
+            evidence={"contract_vendor": contract["vendor_name"], "invoice_vendor": req.invoice.vendor},
         )
-    if row["max_amount"] is not None and req.invoice.amount > float(row["max_amount"]):
+    if contract["max_amount"] is not None and req.invoice.amount > float(contract["max_amount"]):
         return CheckResult(
             name="contract_match",
             status="failed",
             message="Invoice amount exceeds contract limit.",
-            evidence={"contract_limit": row["max_amount"], "amount": req.invoice.amount},
+            evidence={"contract_limit": contract["max_amount"], "amount": req.invoice.amount},
         )
     return CheckResult(
         name="contract_match",
         status="passed",
         message="Invoice matches active contract.",
-        evidence={"contract_id": row["id"], "contract_limit": row["max_amount"], "evidence_url": row["evidence_url"]},
+        evidence={
+            "contract_id": contract["id"],
+            "contract_limit": contract["max_amount"],
+            "evidence_url": contract["evidence_url"],
+        },
     )
 
 

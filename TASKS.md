@@ -2,6 +2,15 @@
 
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
+
+- **Phase 5C — Approval workflow engine (done, this commit)**:
+  - pp/approval_workflow.py: Workflow generation and maker-checker validation logic.
+  - pp/main.py: Updated dashboard_approve and dashboard_execute to enforce 2-step rules.
+  - pp/templates/transaction_detail.html: UI rendering for workflow status and pending steps.
+  - 	ests/test_approval_workflow.py: Comprehensive test suite for Phase 5C.
+  - Test suites updated to use updated default policies for isolation.
+  - **Tests: 213/213 passing.**
+
 ---
 
 ## Current MVP goal
@@ -166,7 +175,7 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
   - `tests/test_admin.py`: 21 new tests.
   - **Tests: 196/196 passing.**
 
-- **Context-retention and handoff pass (done, this commit)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
+- **Context-retention and handoff pass (done)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
 
 ---
 

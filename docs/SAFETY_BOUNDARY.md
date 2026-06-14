@@ -120,6 +120,19 @@ Production still requires real identity, secret management, and immutable audit 
 
 ---
 
+## Admin-managed finance data (Phase 5B)
+
+Vendors, contracts, and policy thresholds can be managed via `/dashboard/admin` (admin role only). This is still a **local SQLite prototype**:
+
+- Vendor onboarding with verification status and risk tier.
+- Contract registration with limits, dates, and local evidence references.
+- Editable policy thresholds (approval, contract evidence, duplicate window, intent lock TTL).
+- All admin mutations write audit events.
+
+Production would additionally require migration tooling, durable audit storage, compliance review, and real identity/RBAC policy administration — not demo passwords.
+
+---
+
 ## Production requirements before real finance use
 
 Do **not** use this MVP for production finance automation without addressing:

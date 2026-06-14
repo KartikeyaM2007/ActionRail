@@ -280,6 +280,46 @@
       {% endif %}
     </section>
 
+    {% if wf %}
+    <section class="neo-section" aria-labelledby="workflow-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="workflow-heading">Approval Workflow</h2>
+        <span class="neo-badge neo-badge--status-{{ wf.status }}">{{ wf.status }}</span>
+      </div>
+      <div class="neo-detail-grid" style="margin-bottom: 16px;">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Workflow Type</div>
+          <div class="neo-detail-card__value"><code>{{ wf.workflow_type }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Progress</div>
+          <div class="neo-detail-card__value">{{ wf.completed_approvals }} / {{ wf.required_approvals }} completed</div>
+        </div>
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Reason</div>
+          <div class="neo-detail-card__value">{{ wf.reason }}</div>
+        </div>
+      </div>
+      <ul class="neo-check-list">
+        {% for step in wf_steps %}
+        <li class="neo-check-item neo-check-item--{{ step.status }}">
+          <div class="neo-check-item__head">
+            <span class="neo-check-item__name">Step {{ step.step_order }} required role: <code>{{ step.required_role }}</code></span>
+            <span class="neo-badge neo-badge--check-{{ step.status }}">{{ step.status }}</span>
+          </div>
+          {% if step.status != 'pending' %}
+          <div class="neo-check-item__msg" style="margin-top: 8px;">
+            By: {{ step.approver_email }}<br>
+            Note: {{ step.note or 'None' }}<br>
+            <span style="font-family: ui-monospace, monospace; font-size: 0.85rem">{{ step.decided_at }}</span>
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     {% if txn.approval %}
     <section class="neo-section" aria-labelledby="approval-heading">
       <div class="neo-section__head">

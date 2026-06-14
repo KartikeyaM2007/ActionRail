@@ -17,10 +17,14 @@ from app import control
 from app.auth import role_has_permission, verify_password
 from app.models import ApprovalDecision, PreflightRequest, Receipt
 from app.policy import get_transaction, receipt_id, run_preflight, sign_receipt
+from app.approval_workflow import plan_approval_workflow, enforce_maker_checker
 from app.store import (
     connect, dumps, get_accounting_writeback, get_uploaded_document, get_user_by_email,
     init_db, list_audit_events, list_audit_events_for_transaction, loads, save_accounting_writeback,
     save_uploaded_document, seed_demo, utc_now,
+    create_approval_workflow, create_approval_step, get_approval_workflow_for_transaction,
+    list_approval_steps_for_transaction, get_current_pending_approval_step,
+    record_approval_step_decision, mark_workflow_approved_if_complete, mark_workflow_rejected
 )
 
 app = FastAPI(
@@ -37,6 +41,8 @@ _APP_DIR = Path(__file__).resolve().parent
 _REPO_DIR = _APP_DIR.parent
 _UPLOAD_DIR = _REPO_DIR / "data" / "uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+_CONTRACT_EVIDENCE_DIR = _REPO_DIR / "data" / "contract_evidence"
+_CONTRACT_EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 _ACCOUNTING_PROVIDER = "local_accounting_sandbox"
 app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET, max_age=60 * 60 * 24 * 7)
 app.mount("/static", StaticFiles(directory=_APP_DIR / "static"), name="static")
@@ -129,6 +135,41 @@ def read_transaction(transaction_id: str):
 # Both the JSON API routes and the dashboard routes call these.
 # Returning plain dicts keeps the JSON API response shape byte-identical.
 # ---------------------------------------------------------------------------
+
+def _create_workflow_if_needed(request: Request, transaction_id: str, user: dict[str, Any]):
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        return
+    from app.store import get_policy
+    policy = get_policy(conn)
+    plan = plan_approval_workflow(txn, policy)
+    if plan:
+        create_approval_workflow(
+            conn,
+            workflow_id=plan["workflow_id"],
+            transaction_id=transaction_id,
+            workflow_type=plan["workflow_type"],
+            status="pending",
+            required_approvals=plan["required_approvals"],
+            reason=plan["reason"]
+        )
+        for step in plan["steps"]:
+            create_approval_step(
+                conn,
+                step_id=step["step_id"],
+                workflow_id=plan["workflow_id"],
+                transaction_id=transaction_id,
+                step_order=step["step_order"],
+                required_role=step["required_role"],
+                status="pending"
+            )
+        control.write_audit_event(
+            conn, request, action="approval_workflow_created", target_type="transaction",
+            target_id=transaction_id,
+            event={"workflow_id": plan["workflow_id"], "workflow_type": plan["workflow_type"]},
+            actor=user
+        )
+
 
 def _approve_transaction(transaction_id: str, approver_id: str, note: str | None) -> dict[str, Any]:
     txn = get_transaction(conn, transaction_id)
@@ -279,6 +320,7 @@ def _load_demo_request(example_name: str) -> PreflightRequest:
 def _row_to_listing(row) -> dict[str, Any]:
     """Project a transactions row plus its invoice JSON into the dashboard list view-model."""
     invoice = loads(row["invoice_json"], {}) or {}
+    wf = get_approval_workflow_for_transaction(conn, row["id"])
     return {
         "id": row["id"],
         "agent_id": row["agent_id"],
@@ -291,6 +333,7 @@ def _row_to_listing(row) -> dict[str, Any]:
         "risk": row["risk"],
         "status": row["status"],
         "created_at": row["created_at"],
+        "workflow_status": wf["status"] if wf else None,
     }
 
 
@@ -435,12 +478,16 @@ def _render_detail(
     has_wb = _has_accounting_writeback(transaction_id)
     role = user["role"]
     txn_audit = list_audit_events_for_transaction(conn, transaction_id, limit=30)
+    wf = get_approval_workflow_for_transaction(conn, transaction_id)
+    wf_steps = list_approval_steps_for_transaction(conn, transaction_id) if wf else []
     return templates.TemplateResponse(
         request,
         "transaction_detail.html",
         _dash_ctx(
             request,
             txn=vm,
+            wf=wf,
+            wf_steps=wf_steps,
             can_approve=_can_approve(txn) and role_has_permission(role, "approve_transaction"),
             can_execute=_can_execute(txn) and role_has_permission(role, "execute_transaction"),
             can_writeback=(
@@ -591,6 +638,23 @@ def dashboard_audit_log(request: Request):
     )
 
 
+from app.admin_routes import mount_admin_routes
+
+import sys as _sys
+_main_mod = _sys.modules[__name__]
+
+mount_admin_routes(
+    app,
+    get_conn=lambda: _main_mod.conn,
+    templates=templates,
+    dash_ctx=_dash_ctx,
+    dash_guard=_dash_guard,
+    dash_csrf=_dash_csrf,
+    version=app.version,
+    get_evidence_dir=lambda: _CONTRACT_EVIDENCE_DIR,
+)
+
+
 # ---------------------------------------------------------------------------
 # Dashboard list view
 # ---------------------------------------------------------------------------
@@ -645,6 +709,7 @@ def dashboard_demo_preflight(
         event={"example_name": example_name, "decision": result.decision},
         actor=user,
     )
+    _create_workflow_if_needed(request, result.transaction_id, user)
     return RedirectResponse(
         url=f"/dashboard/transactions/{result.transaction_id}",
         status_code=303,
@@ -677,11 +742,55 @@ def dashboard_approve(
     if csrf_resp:
         return csrf_resp
     try:
-        _approve_transaction(transaction_id, user["email"], note or None)
-        control.write_audit_event(
-            conn, request, action="transaction_approved", target_type="transaction",
-            target_id=transaction_id, event={"note": note}, actor=user,
-        )
+        txn = get_transaction(conn, transaction_id)
+        if not txn:
+            raise HTTPException(status_code=404, detail="transaction_not_found")
+
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if not wf or wf["status"] != "pending":
+            _approve_transaction(transaction_id, user["email"], note or None)
+            control.write_audit_event(
+                conn, request, action="transaction_approved", target_type="transaction",
+                target_id=transaction_id, event={"note": note}, actor=user,
+            )
+        else:
+            if not enforce_maker_checker(user, txn):
+                control.write_audit_event(
+                    conn, request, action="approval_separation_denied", target_type="transaction",
+                    target_id=transaction_id, event={"reason": "maker cannot be checker"}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail="Separation of duties: you cannot approve a transaction you created.")
+
+            step = get_current_pending_approval_step(conn, transaction_id)
+            if not step:
+                raise HTTPException(status_code=400, detail="no_pending_steps")
+            
+            # Enforce role
+            if user["role"] != step["required_role"] and user["role"] != "admin":
+                control.write_audit_event(
+                    conn, request, action="approval_wrong_role_denied", target_type="transaction",
+                    target_id=transaction_id, event={"required_role": step["required_role"], "user_role": user["role"]}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail=f"This step requires the {step['required_role']} role.")
+
+            # Record step decision
+            record_approval_step_decision(
+                conn, step_id=step["id"], status="approved", 
+                approver_user_id=user["id"], approver_email=user["email"], note=note
+            )
+            control.write_audit_event(
+                conn, request, action="approval_step_completed", target_type="transaction",
+                target_id=transaction_id, event={"step_id": step["id"], "note": note}, actor=user,
+            )
+
+            # Check if workflow is complete
+            if mark_workflow_approved_if_complete(conn, transaction_id):
+                _approve_transaction(transaction_id, user["email"], note or None)
+                control.write_audit_event(
+                    conn, request, action="transaction_approved", target_type="transaction",
+                    target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+                )
+
     except HTTPException as exc:
         return _render_detail(
             request, transaction_id, user, error=str(exc.detail), status_code=exc.status_code,
@@ -703,11 +812,54 @@ def dashboard_reject(
     if csrf_resp:
         return csrf_resp
     try:
-        _reject_transaction(transaction_id, user["email"], note or None)
-        control.write_audit_event(
-            conn, request, action="transaction_rejected", target_type="transaction",
-            target_id=transaction_id, event={"note": note}, actor=user,
-        )
+        txn = get_transaction(conn, transaction_id)
+        if not txn:
+            raise HTTPException(status_code=404, detail="transaction_not_found")
+            
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if not wf or wf["status"] != "pending":
+            _reject_transaction(transaction_id, user["email"], note or None)
+            control.write_audit_event(
+                conn, request, action="transaction_rejected", target_type="transaction",
+                target_id=transaction_id, event={"note": note}, actor=user,
+            )
+        else:
+            if not enforce_maker_checker(user, txn):
+                control.write_audit_event(
+                    conn, request, action="approval_separation_denied", target_type="transaction",
+                    target_id=transaction_id, event={"reason": "maker cannot be checker"}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail="Separation of duties: you cannot reject a transaction you created.")
+                
+            step = get_current_pending_approval_step(conn, transaction_id)
+            if not step:
+                raise HTTPException(status_code=400, detail="no_pending_steps")
+
+            # Enforce role
+            if user["role"] != step["required_role"] and user["role"] != "admin":
+                control.write_audit_event(
+                    conn, request, action="approval_wrong_role_denied", target_type="transaction",
+                    target_id=transaction_id, event={"required_role": step["required_role"], "user_role": user["role"]}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail=f"This step requires the {step['required_role']} role.")
+
+            # Reject step and workflow
+            record_approval_step_decision(
+                conn, step_id=step["id"], status="rejected", 
+                approver_user_id=user["id"], approver_email=user["email"], note=note
+            )
+            mark_workflow_rejected(conn, transaction_id)
+            _reject_transaction(transaction_id, user["email"], note or None)
+
+            control.write_audit_event(
+                conn, request, action="approval_step_rejected", target_type="transaction",
+                target_id=transaction_id, event={"step_id": step["id"], "note": note}, actor=user,
+            )
+            control.write_audit_event(
+                conn, request, action="approval_workflow_rejected", target_type="transaction",
+                target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+            )
+
     except HTTPException as exc:
         return _render_detail(
             request, transaction_id, user, error=str(exc.detail), status_code=exc.status_code,
@@ -728,6 +880,14 @@ def dashboard_execute(
     if csrf_resp:
         return csrf_resp
     try:
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if wf and wf["status"] == "pending":
+            control.write_audit_event(
+                conn, request, action="execution_denied_workflow_pending", target_type="transaction",
+                target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+            )
+            raise HTTPException(status_code=400, detail="Cannot execute: approval workflow is still pending.")
+
         _execute_transaction(transaction_id)
         control.write_audit_event(
             conn, request, action="transaction_executed", target_type="transaction",
@@ -1026,6 +1186,7 @@ def upload_invoice_review_submit(
         event={"document_id": doc_id, "invoice_id": confirmed.get("invoice_id")},
         actor=user,
     )
+    _create_workflow_if_needed(request, result.transaction_id, user)
     return RedirectResponse(
         url=f"/dashboard/transactions/{result.transaction_id}",
         status_code=303,

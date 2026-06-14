@@ -148,7 +148,118 @@ def init_db(conn: sqlite3.Connection) -> None:
             event_json TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS contract_evidence (
+            id TEXT PRIMARY KEY,
+            contract_id TEXT,
+            original_filename TEXT NOT NULL,
+            stored_filename TEXT NOT NULL,
+            content_type TEXT,
+            file_size INTEGER,
+            sha256 TEXT NOT NULL,
+            storage_path TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS approval_workflows (
+            id TEXT PRIMARY KEY,
+            transaction_id TEXT NOT NULL UNIQUE,
+            workflow_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            required_approvals INTEGER NOT NULL,
+            completed_approvals INTEGER NOT NULL DEFAULT 0,
+            reason TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS approval_steps (
+            id TEXT PRIMARY KEY,
+            workflow_id TEXT NOT NULL,
+            transaction_id TEXT NOT NULL,
+            step_order INTEGER NOT NULL,
+            required_role TEXT NOT NULL,
+            status TEXT NOT NULL,
+            approver_user_id TEXT,
+            approver_email TEXT,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            decided_at TEXT
+        );
         """
+    )
+    conn.commit()
+    _migrate_schema(conn)
+
+
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {row[1] for row in rows}
+
+
+def _migrate_schema(conn: sqlite3.Connection) -> None:
+    """Add Phase 5B columns without breaking existing demo DBs."""
+    now = utc_now().isoformat()
+    vcols = _table_columns(conn, "vendors")
+    if "status" not in vcols:
+        conn.execute("ALTER TABLE vendors ADD COLUMN status TEXT")
+    if "country" not in vcols:
+        conn.execute("ALTER TABLE vendors ADD COLUMN country TEXT")
+    if "notes" not in vcols:
+        conn.execute("ALTER TABLE vendors ADD COLUMN notes TEXT")
+    if "created_at" not in vcols:
+        conn.execute("ALTER TABLE vendors ADD COLUMN created_at TEXT")
+    if "updated_at" not in vcols:
+        conn.execute("ALTER TABLE vendors ADD COLUMN updated_at TEXT")
+    conn.execute(
+        """
+        UPDATE vendors SET status='verified', country=COALESCE(country, 'IN'),
+               created_at=COALESCE(created_at, ?), updated_at=COALESCE(updated_at, ?)
+        WHERE verified=1 AND (status IS NULL OR status='')
+        """,
+        (now, now),
+    )
+    conn.execute(
+        """
+        UPDATE vendors SET status='pending_review', country=COALESCE(country, 'IN'),
+               created_at=COALESCE(created_at, ?), updated_at=COALESCE(updated_at, ?)
+        WHERE verified=0 AND (status IS NULL OR status='')
+        """,
+        (now, now),
+    )
+
+    ccols = _table_columns(conn, "contracts")
+    if "status" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN status TEXT")
+    if "currency" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN currency TEXT DEFAULT 'INR'")
+    if "start_date" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN start_date TEXT")
+    if "end_date" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN end_date TEXT")
+    if "notes" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN notes TEXT")
+    if "created_at" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN created_at TEXT")
+    if "updated_at" not in ccols:
+        conn.execute("ALTER TABLE contracts ADD COLUMN updated_at TEXT")
+    conn.execute(
+        """
+        UPDATE contracts SET status='active', currency=COALESCE(currency, 'INR'),
+               start_date=COALESCE(start_date, '2026-01-01'),
+               end_date=COALESCE(end_date, '2027-12-31'),
+               created_at=COALESCE(created_at, ?), updated_at=COALESCE(updated_at, ?)
+        WHERE active=1 AND (status IS NULL OR status='')
+        """,
+        (now, now),
+    )
+    conn.execute(
+        """
+        UPDATE contracts SET status='inactive', currency=COALESCE(currency, 'INR'),
+               created_at=COALESCE(created_at, ?), updated_at=COALESCE(updated_at, ?)
+        WHERE active=0 AND (status IS NULL OR status='')
+        """,
+        (now, now),
     )
     conn.commit()
 
@@ -237,6 +348,260 @@ def get_policy(conn: sqlite3.Connection) -> dict[str, Any]:
     if not row:
         return {}
     return loads(row["value_json"], {})
+
+
+def save_policy(conn: sqlite3.Connection, policy: dict[str, Any]) -> None:
+    conn.execute(
+        "UPDATE policies SET value_json=? WHERE key='finance_default'",
+        (dumps(policy),),
+    )
+    conn.commit()
+
+
+def update_policy_settings(conn: sqlite3.Connection, **updates: Any) -> dict[str, Any]:
+    policy = get_policy(conn)
+    for key, value in updates.items():
+        policy[key] = value
+    save_policy(conn, policy)
+    return policy
+
+
+# ---------------------------------------------------------------------------
+# Vendor admin helpers
+# ---------------------------------------------------------------------------
+
+def _vendor_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    if not data.get("status"):
+        data["status"] = "verified" if data.get("verified") else "pending_review"
+    data["verified"] = bool(data.get("verified", 0))
+    return data
+
+
+def list_vendors(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = conn.execute("SELECT * FROM vendors ORDER BY name").fetchall()
+    return [_vendor_row_to_dict(row) for row in rows]
+
+
+def get_vendor(conn: sqlite3.Connection, vendor_id: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM vendors WHERE id=?", (vendor_id,)).fetchone()
+    if not row:
+        return None
+    return _vendor_row_to_dict(row)
+
+
+def get_vendor_by_name(conn: sqlite3.Connection, name: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM vendors WHERE lower(name)=lower(?)", (name,)).fetchone()
+    if not row:
+        return None
+    return _vendor_row_to_dict(row)
+
+
+def create_vendor(
+    conn: sqlite3.Connection,
+    *,
+    vendor_id: str,
+    name: str,
+    gst_number: str | None,
+    country: str,
+    status: str,
+    risk_level: str,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    now = utc_now().isoformat()
+    verified = 1 if status == "verified" else 0
+    conn.execute(
+        """
+        INSERT INTO vendors(
+            id, name, verified, gst_number, risk_level, country, status, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (vendor_id, name, verified, gst_number, risk_level, country, status, notes, now, now),
+    )
+    conn.commit()
+    return get_vendor(conn, vendor_id)  # type: ignore[return-value]
+
+
+def update_vendor(
+    conn: sqlite3.Connection,
+    vendor_id: str,
+    *,
+    gst_number: str | None = None,
+    country: str | None = None,
+    status: str | None = None,
+    risk_level: str | None = None,
+    notes: str | None = None,
+) -> dict[str, Any] | None:
+    vendor = get_vendor(conn, vendor_id)
+    if not vendor:
+        return None
+    now = utc_now().isoformat()
+    new_status = status if status is not None else vendor["status"]
+    verified = 1 if new_status == "verified" else 0
+    conn.execute(
+        """
+        UPDATE vendors SET
+            gst_number=?, country=?, status=?, risk_level=?, notes=?,
+            verified=?, updated_at=?
+        WHERE id=?
+        """,
+        (
+            gst_number if gst_number is not None else vendor.get("gst_number"),
+            country if country is not None else vendor.get("country"),
+            new_status,
+            risk_level if risk_level is not None else vendor.get("risk_level"),
+            notes if notes is not None else vendor.get("notes"),
+            verified,
+            now,
+            vendor_id,
+        ),
+    )
+    conn.commit()
+    return get_vendor(conn, vendor_id)
+
+
+# ---------------------------------------------------------------------------
+# Contract admin helpers
+# ---------------------------------------------------------------------------
+
+def _contract_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    if not data.get("status"):
+        data["status"] = "active" if data.get("active") else "inactive"
+    data["active"] = bool(data.get("active", 0))
+    return data
+
+
+def list_contracts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = conn.execute("SELECT * FROM contracts ORDER BY vendor_name, id").fetchall()
+    return [_contract_row_to_dict(row) for row in rows]
+
+
+def get_contract(conn: sqlite3.Connection, contract_id: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM contracts WHERE id=?", (contract_id,)).fetchone()
+    if not row:
+        return None
+    return _contract_row_to_dict(row)
+
+
+def create_contract(
+    conn: sqlite3.Connection,
+    *,
+    contract_id: str,
+    vendor_name: str,
+    max_amount: float,
+    currency: str,
+    start_date: str | None,
+    end_date: str | None,
+    status: str,
+    evidence_url: str | None,
+    terms: str | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    now = utc_now().isoformat()
+    active = 1 if status == "active" else 0
+    conn.execute(
+        """
+        INSERT INTO contracts(
+            id, vendor_name, active, max_amount, terms, evidence_url,
+            currency, start_date, end_date, status, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            contract_id, vendor_name, active, max_amount, terms, evidence_url,
+            currency, start_date, end_date, status, notes, now, now,
+        ),
+    )
+    conn.commit()
+    return get_contract(conn, contract_id)  # type: ignore[return-value]
+
+
+def update_contract(
+    conn: sqlite3.Connection,
+    contract_id: str,
+    *,
+    max_amount: float | None = None,
+    currency: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    status: str | None = None,
+    evidence_url: str | None = None,
+    terms: str | None = None,
+    notes: str | None = None,
+) -> dict[str, Any] | None:
+    contract = get_contract(conn, contract_id)
+    if not contract:
+        return None
+    now = utc_now().isoformat()
+    new_status = status if status is not None else contract["status"]
+    active = 1 if new_status == "active" else 0
+    conn.execute(
+        """
+        UPDATE contracts SET
+            max_amount=?, currency=?, start_date=?, end_date=?, status=?, active=?,
+            evidence_url=?, terms=?, notes=?, updated_at=?
+        WHERE id=?
+        """,
+        (
+            max_amount if max_amount is not None else contract.get("max_amount"),
+            currency if currency is not None else contract.get("currency"),
+            start_date if start_date is not None else contract.get("start_date"),
+            end_date if end_date is not None else contract.get("end_date"),
+            new_status,
+            active,
+            evidence_url if evidence_url is not None else contract.get("evidence_url"),
+            terms if terms is not None else contract.get("terms"),
+            notes if notes is not None else contract.get("notes"),
+            now,
+            contract_id,
+        ),
+    )
+    conn.commit()
+    return get_contract(conn, contract_id)
+
+
+def set_contract_status(conn: sqlite3.Connection, contract_id: str, status: str) -> dict[str, Any] | None:
+    return update_contract(conn, contract_id, status=status)
+
+
+# ---------------------------------------------------------------------------
+# Contract evidence helpers
+# ---------------------------------------------------------------------------
+
+def save_contract_evidence(
+    conn: sqlite3.Connection,
+    *,
+    evidence_id: str,
+    contract_id: str,
+    original_filename: str,
+    stored_filename: str,
+    content_type: str | None,
+    file_size: int,
+    sha256: str,
+    storage_path: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO contract_evidence(
+            id, contract_id, original_filename, stored_filename, content_type,
+            file_size, sha256, storage_path, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            evidence_id, contract_id, original_filename, stored_filename, content_type,
+            file_size, sha256, storage_path, utc_now().isoformat(),
+        ),
+    )
+    ref = f"local://contract_evidence/{evidence_id}"
+    update_contract(conn, contract_id, evidence_url=ref)
+
+
+def list_contract_evidence(conn: sqlite3.Connection, contract_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM contract_evidence WHERE contract_id=? ORDER BY created_at DESC",
+        (contract_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def create_user(
@@ -507,3 +872,146 @@ def list_accounting_writebacks(
         data["result"] = loads(data.pop("result_json"), {})
         result.append(data)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Approval Workflow helpers
+# ---------------------------------------------------------------------------
+
+def create_approval_workflow(
+    conn: sqlite3.Connection,
+    *,
+    workflow_id: str,
+    transaction_id: str,
+    workflow_type: str,
+    status: str,
+    required_approvals: int,
+    reason: str | None,
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO approval_workflows(
+            id, transaction_id, workflow_type, status, required_approvals,
+            completed_approvals, reason, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+        """,
+        (
+            workflow_id, transaction_id, workflow_type, status, required_approvals,
+            reason, now, now
+        ),
+    )
+    conn.commit()
+
+
+def create_approval_step(
+    conn: sqlite3.Connection,
+    *,
+    step_id: str,
+    workflow_id: str,
+    transaction_id: str,
+    step_order: int,
+    required_role: str,
+    status: str,
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO approval_steps(
+            id, workflow_id, transaction_id, step_order, required_role,
+            status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (step_id, workflow_id, transaction_id, step_order, required_role, status, now),
+    )
+    conn.commit()
+
+
+def get_approval_workflow_for_transaction(
+    conn: sqlite3.Connection, transaction_id: str
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM approval_workflows WHERE transaction_id=?", (transaction_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def list_approval_steps_for_transaction(
+    conn: sqlite3.Connection, transaction_id: str
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM approval_steps WHERE transaction_id=? ORDER BY step_order ASC",
+        (transaction_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_current_pending_approval_step(
+    conn: sqlite3.Connection, transaction_id: str
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM approval_steps WHERE transaction_id=? AND status='pending' ORDER BY step_order ASC LIMIT 1",
+        (transaction_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def record_approval_step_decision(
+    conn: sqlite3.Connection,
+    *,
+    step_id: str,
+    status: str,
+    approver_user_id: str,
+    approver_email: str,
+    note: str | None,
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        """
+        UPDATE approval_steps SET
+            status=?, approver_user_id=?, approver_email=?, note=?, decided_at=?
+        WHERE id=?
+        """,
+        (status, approver_user_id, approver_email, note, now, step_id),
+    )
+    if status == 'approved':
+        conn.execute(
+            """
+            UPDATE approval_workflows SET
+                completed_approvals = completed_approvals + 1,
+                updated_at = ?
+            WHERE id = (SELECT workflow_id FROM approval_steps WHERE id=?)
+            """,
+            (now, step_id),
+        )
+    conn.commit()
+
+
+def mark_workflow_approved_if_complete(
+    conn: sqlite3.Connection, transaction_id: str
+) -> bool:
+    now = utc_now().isoformat()
+    pending = conn.execute(
+        "SELECT 1 FROM approval_steps WHERE transaction_id=? AND status='pending'",
+        (transaction_id,)
+    ).fetchone()
+    
+    if not pending:
+        conn.execute(
+            "UPDATE approval_workflows SET status='approved', updated_at=? WHERE transaction_id=?",
+            (now, transaction_id)
+        )
+        conn.commit()
+        return True
+    return False
+
+
+def mark_workflow_rejected(
+    conn: sqlite3.Connection, transaction_id: str
+) -> None:
+    now = utc_now().isoformat()
+    conn.execute(
+        "UPDATE approval_workflows SET status='rejected', updated_at=? WHERE transaction_id=?",
+        (now, transaction_id)
+    )
+    conn.commit()

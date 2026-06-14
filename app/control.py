@@ -48,6 +48,7 @@ def page_context(request: Request, conn, *, version: str, **extra: Any) -> dict[
         "current_user": user,
         "csrf_token": ensure_csrf_token(request.session),
         "can_view_audit": bool(user and role_has_permission(user["role"], "view_audit_log")),
+        "can_view_admin": bool(user and role_has_permission(user["role"], "manage_admin")),
         "static_url": "/static",
         "version": version,
     }

@@ -159,6 +159,11 @@
               </td>
               <td>
                 <span class="neo-badge neo-badge--status-{{ row.status }}">{{ row.status }}</span>
+                {% if row.workflow_status %}
+                <div style="margin-top: 4px;">
+                  <span class="neo-badge neo-badge--status-{{ row.workflow_status }}" style="font-size: 0.7rem; padding: 2px 4px;">WF: {{ row.workflow_status }}</span>
+                </div>
+                {% endif %}
               </td>
               <td>
                 <a class="neo-link-button" href="/dashboard/transactions/{{ row.id }}">View</a>

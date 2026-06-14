@@ -58,6 +58,14 @@ Server-rendered HTML forms POST to dashboard routes that call the same internal 
 
 JSON API routes remain unauthenticated in this phase — agent integrations unchanged.
 
+**Phase 5B admin control plane (local demo):**
+
+- `/dashboard/admin` — vendor onboarding, contract registration, policy thresholds (admin only).
+- Vendor status: `verified`, `pending_review`, `blocked` — only verified passes `vendor_verified`.
+- Contract status: `active`, `inactive`, `expired` — inactive/expired fail `contract_match`.
+- Contract evidence stored under `data/contract_evidence/` (gitignored, not served publicly).
+- Policy edits affect future preflights only; existing transactions unchanged.
+
 ---
 
 ## Transaction lifecycle

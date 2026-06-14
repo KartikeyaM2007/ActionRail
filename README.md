@@ -210,6 +210,8 @@ Roles: **viewer** (read dashboard/receipts) · **controller** (upload/review/dem
 
 Dashboard POST forms are CSRF-protected. Per-action audit events are written to the local SQLite audit ledger. The JSON API remains unchanged (no auth/CSRF on API routes in this phase).
 
+**Admin control plane (Phase 5B):** sign in as `admin@example.local` and open `/dashboard/admin` to manage vendors, contracts, policy thresholds, and contract evidence uploads. All admin changes are audited. Still local prototype only — not production finance automation.
+
 Production requires a real identity provider, RBAC policy administration, secure secret management (`ACTIONRAIL_SESSION_SECRET`), and audit-grade storage — not these demo passwords.
 
 ## Demo narrative

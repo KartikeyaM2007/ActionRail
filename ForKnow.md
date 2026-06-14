@@ -1833,3 +1833,61 @@ pytest -q
 ## What the user should send to ChatGPT
 
 Copy paste this whole latest `ForKnow.md` entry.
+
+---
+
+# Cursor Work Update: Phase 5C — Approval workflow engine
+
+## Date
+
+2026-06-14
+
+## Prompt I worked on
+
+Phase 5C: approval workflow engine, maker-checker controls, and separation of duties. Resolved failing tests caused by default policy shifts.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| pp/approval_workflow.py | New — Workflow planning and maker-checker constraint logic |
+| pp/main.py | Enforce 2-step rules on approval/execution |
+| pp/templates/transaction_detail.html | Render workflow steps and UI locks |
+| 	ests/test_approval_workflow.py | Complete Phase 5C test suite |
+| 	ests/test_auth.py, 	ests/test_dashboard.py, 	ests/test_accounting.py | Adjusted fixture policy for isolated 1-step tests |
+| CHANGELOG.md, TASKS.md, HANDOFF.md | Updated docs |
+
+## What I added
+
+- Dynamic 1-step or 2-step routing based on transaction risk/amount.
+- Maker-checker separation (user cannot approve their own requests).
+- 	est_approval_workflow.py fully validates 2-step behaviors.
+
+## What I modified
+
+- Test suites required policy adjustment to handle new stringent defaults natively.
+- Execution gated strictly by full workflow completion.
+
+## What I did not change
+
+- Execution stays simulated.
+- No schema changes to core tables beyond leveraging JSON payloads.
+
+## Tests run
+
+`ash
+pytest -q
+`
+
+`	ext
+213 passed in 100.49s (0:01:40)
+`
+
+## Current status
+
+- App/API: 213/213 passing.
+- Dashboard: Reflects dynamic workflow steps accurately.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest ForKnow.md entry.

@@ -54,6 +54,7 @@ The following are implemented and tested:
 pytest -q
 # 154 passed (as of Phase 4A)
 # 175 passed (as of Phase 5A)
+# 196 passed (as of Phase 5B)
 ```
 
 Test coverage includes:
@@ -93,7 +94,8 @@ See [`docs/SAFETY_BOUNDARY.md`](SAFETY_BOUNDARY.md).
 | SQLite single-file DB | Not multi-tenant or HA |
 | Local demo dashboard auth only | Seeded passwords — not production IdP/OAuth |
 | JSON API unauthenticated | Agent routes unchanged in Phase 5A |
-| Audit ledger is local SQLite | Not immutable/audit-grade storage |
+| Admin vendor/contract/policy UI (Phase 5B) | Yes — local SQLite only |
+| Contract evidence local storage | Yes — gitignored |
 | OCR optional | Manual field entry always available |
 | Regex PDF extraction | Basic; not ML-based |
 | Dashboard is secondary | API is the product |

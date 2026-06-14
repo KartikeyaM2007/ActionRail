@@ -38,6 +38,10 @@ data/accounting_sandbox/draft_bills/*
 data/accounting_sandbox/audit_packets/*
 !data/accounting_sandbox/audit_packets/.gitkeep
 
+# Contract evidence uploads (never commit)
+data/contract_evidence/*
+!data/contract_evidence/.gitkeep
+
 # Environment files
 .env
 

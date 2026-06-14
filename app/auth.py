@@ -33,6 +33,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "execute_transaction": frozenset({"executor", "admin"}),
     "accounting_writeback": frozenset({"executor", "admin"}),
     "view_audit_log": frozenset({"auditor", "admin"}),
+    "manage_admin": frozenset({"admin"}),
 }
 
 # Demo users: (id, email, display_name, role, password) — local demo only.

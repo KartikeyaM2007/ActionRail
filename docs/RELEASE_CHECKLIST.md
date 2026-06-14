@@ -70,9 +70,9 @@ uvicorn app.main:app --reload
 - [ ] Stats cards visible (Total · Approval required · Needs evidence · Blocked · Executed).
 - [ ] "Upload real invoice" button visible (controller/admin).
 - [ ] Logout returns to `/login`.
-- [ ] Login as `auditor@example.local` → `/dashboard/audit` shows audit events.
-
-Open: <http://127.0.0.1:8000/dashboard>
+- [ ] Login as `admin@example.local` → `/dashboard/admin` loads.
+- [ ] Create vendor, contract, upload evidence, update policy threshold.
+- [ ] Confirm admin actions appear in `/dashboard/audit`.
 
 ---
 
