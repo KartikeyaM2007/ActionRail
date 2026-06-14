@@ -2229,3 +2229,80 @@ pytest -q
 
 Copy paste this whole latest ForKnow.md entry.
 
+
+# Cursor Work Update: Phase 6E Agent Integration Examples
+
+## Date
+
+2026-06-14T23:35:00+05:30
+
+## Prompt I worked on
+
+Phase 6E: agent integration examples. Add small, clean examples showing how an AI agent or workflow would call ActionRail as a finance action gateway. Create agent integration guide (AGENT_INTEGRATION.md), python agent client example (agent_client.py), LangGraph Node example (langgraph_actionrail_tool.py), OpenAPI function calling schema (openapi_tool_schema.json), examples README, update architecture documents, root README, and add unit tests.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| docs/AGENT_INTEGRATION.md | [NEW] Explains the agentic mental model, HTTP JSON endpoints, decision handling, rate limits, and safety boundaries. |
+| examples/agent_client.py | [NEW] Lightweight standard library Python client illustrating PreflightRequest payload submission, idempotency handling, and decision branch logic. |
+| examples/langgraph_actionrail_tool.py | [NEW] Tool wrapper implementation blueprint for agent frameworks (LangGraph/LangChain). |
+| examples/openapi_tool_schema.json | [NEW] OpenAI tool schema description and parameters definition for function calling. |
+| examples/README.md | [NEW] Setup instructions and quickstart details for agent examples. |
+| tests/test_agent_examples.py | [NEW] Verification tests to ensure example files are importable, schema JSON parses correctly, and doc links resolve. |
+| README.md | [MODIFY] Appended a new "Agent integration examples" section linking to the new docs/examples. |
+| docs/ARCHITECTURE.md | [MODIFY] Added "Agent-facing integration layer" section detailing data-flow and safety boundary. |
+| TASKS.md | [MODIFY] Logged Phase 6E tasks as completed. |
+| HANDOFF.md | [MODIFY] Updated project handoff details with Phase 6E assets. |
+| CHANGELOG.md | [MODIFY] Added entry for Phase 6E changes. |
+| ForKnow.md | [MODIFY] Appended this work update log entry. |
+
+## What I added
+
+- docs/AGENT_INTEGRATION.md
+- examples/agent_client.py
+- examples/langgraph_actionrail_tool.py
+- examples/openapi_tool_schema.json
+- examples/README.md
+- tests/test_agent_examples.py
+
+## What I modified
+
+- README.md
+- docs/ARCHITECTURE.md
+- TASKS.md
+- HANDOFF.md
+- CHANGELOG.md
+
+## What I did not change
+
+- No backend logic or database schema changed.
+- No changes to JSON API response shapes.
+- No changes to receipt signature payloads.
+- Kept execution simulated with zero real payments.
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+........................................                                 [100%]
+256 passed in 183.57s (0:03:03)
+```
+
+## Current status
+
+- App status: Fully regression verified with 256 tests passing.
+- Dashboard status: Polished and responsive.
+- API status: Protected, governed, and fully documented for agents.
+- Known issues: None.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest ForKnow.md entry.
+

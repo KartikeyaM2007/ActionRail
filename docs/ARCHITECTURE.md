@@ -34,6 +34,39 @@ Readable overview for GitHub reviewers, interviewers, and the next developer pic
 
 ---
 
+## Agent-facing integration layer
+
+ActionRail acts as a secure buffer between the AI agent and sensitive financial systems:
+
+```text
+Agent / workflow system
+  │ (POST /actions/preflight)
+  ▼
+ActionRail JSON API (Primary)
+  │ (app/policy.py)
+  ▼
+Policy preflight checks (vendor, duplicate, contract, thresholds)
+  │
+  ├─► ALLOWED ───────────────┐
+  │                          ▼
+  └─► APPROVAL_REQUIRED ──► Human dashboard (Control plane)
+                             │
+                             ▼
+                           Approved
+                             │
+  ┌──────────────────────────┘
+  ▼
+Simulated execution (Receipt signed with HMAC-SHA256)
+  │
+  ▼
+Receipt / Evidence pack / Replay / Risk monitor logs
+```
+
+* **Agent API is Primary**: The HTTP/JSON API is the primary integration surface. The dashboard is secondary—a human-in-the-loop control plane for review, configuration, and manual approvals.
+* **External Isolation**: External financial systems (real banks, payment rails, ERP platforms) are intentionally **not** connected in this prototype. Execution boundaries are strictly simulated to preserve safety.
+
+---
+
 ## Request flow
 
 ### Agent API (primary)

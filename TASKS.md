@@ -2,7 +2,20 @@
 
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
-- **Phase 6C — Public GitHub/demo asset polish (done, this commit)**:
+- **Phase 6E — Agent integration examples (done, this commit)**:
+  - Created `docs/AGENT_INTEGRATION.md` explaining agent-first model, decisions, and integration patterns.
+  - Created `examples/agent_client.py` showing standard library HTTP client with decision handling.
+  - Created `examples/langgraph_actionrail_tool.py` demonstrating LangGraph framework integration.
+  - Created `examples/openapi_tool_schema.json` containing OpenAPI function schemas for LLMs.
+  - Created `examples/README.md` for client/tool quickstart.
+  - Created `tests/test_agent_examples.py` for schema and import validations.
+  - **Tests: 256/256 passing.**
+
+- **Phase 6D — Pre-public repository sanity check (done)**:
+  - Verified clean untracked state, zero secrets committed, and all links valid.
+  - **Tests: 252/252 passing.**
+
+- **Phase 6C — Public GitHub/demo asset polish (done)**:
   - Added `docs/DEMO_VIDEO_SCRIPT.md`.
   - Added `docs/GITHUB_PUBLISHING.md`.
   - Added `SECURITY.md`.

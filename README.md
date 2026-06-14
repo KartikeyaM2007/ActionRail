@@ -117,6 +117,17 @@ The demo-execution boundary is codified in the code itself: `Demo execution only
 - [Demo Video Script](docs/DEMO_VIDEO_SCRIPT.md)
 - [GitHub Publishing Checklist](docs/GITHUB_PUBLISHING.md)
 - [Security Policy](SECURITY.md)
+- [Agent Integration Guide](docs/AGENT_INTEGRATION.md)
+
+
+## Agent integration examples
+
+ActionRail provides clean, dependency-free examples to show how AI agents and autonomic workflows call the gateway:
+
+- [Examples README](examples/README.md) - Quickstart and details.
+- [Agent client](examples/agent_client.py) - Standard library HTTP client with decision handling.
+- [LangGraph tool wrapper](examples/langgraph_actionrail_tool.py) - Integrating ActionRail into an agent graph/state workflow.
+- [OpenAPI tool schema](examples/openapi_tool_schema.json) - Function calling declaration for LLMs.
 
 
 ## Architecture

@@ -6,6 +6,25 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-14 — Agent Integration Examples (Phase 6E)
+
+### Added
+- `docs/AGENT_INTEGRATION.md` detailing the agent-first mental model, API endpoints, human-in-the-loop gating, and idempotency keys.
+- `examples/agent_client.py` - Standard library Python client implementing HTTP request logic, idempotency headers, and structured decision branch handling.
+- `examples/langgraph_actionrail_tool.py` - Blueprint showing integration with LangGraph framework workflows.
+- `examples/openapi_tool_schema.json` - Tool/function calling definition schema for LLMs.
+- `examples/README.md` - Quickstart details for running agent examples locally.
+- `tests/test_agent_examples.py` - Validation suite for verifying examples importability and schema validity.
+
+### Changed
+- Lightly updated `README.md` with links to the new agent integration assets.
+- Added agent-facing integration layer documentation and diagram to `docs/ARCHITECTURE.md`.
+
+### Tests
+- Full pytest suite passing with new tests added (256 passed).
+
+---
+
 ## 2026-06-14 — Public GitHub/demo asset polish (Phase 6C)
 
 ### Added
