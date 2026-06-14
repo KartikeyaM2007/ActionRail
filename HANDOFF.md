@@ -22,7 +22,7 @@ Living handoff doc for the next Cursor model/chat picking up ActionRail Finance.
 - **Phase 3D — Dashboard stat correctness polish (done)**: `_compute_dashboard_stats()` — executed transactions no longer inflate Approval Required stat; approval required counts only `decision=approval_required` + `status=preflighted`. **Tests: 154/154 passing.**
 - **Phase 4A — Final MVP completion and public release polish (done)**: dashboard column **Preflight Decision**; new docs (`DEMO_SCRIPT`, `ARCHITECTURE`, `SAFETY_BOUNDARY`, `PROJECT_COMPLETION`); README completion status; GitHub release checklist. **Tests: 155/155 passing.**
 - Backend logic reused via three small internal helpers (`_approve_transaction`, `_reject_transaction`, `_execute_transaction`) shared by the JSON API routes and the dashboard routes. **API JSON response shapes preserved exactly.**
-- **Tests: 155/155 passing.**
+- **Phase 5A — Authenticated control plane (done)**: local dashboard login (`/login`), six demo roles with RBAC, CSRF on dashboard POST forms, audit ledger (`/dashboard/audit`), transaction-level audit trail on detail pages. JSON API unchanged. **Tests: 175/175 passing.**
 - No other work-in-progress.
 
 ---
@@ -69,9 +69,13 @@ uvicorn app.main:app --reload
 
 Open in browser:
 
+- `http://127.0.0.1:8000/login` — dashboard sign-in (demo credentials in README)
 - `http://127.0.0.1:8000/docs` — Swagger / OpenAPI
-- `http://127.0.0.1:8000/dashboard` — HTML dashboard
+- `http://127.0.0.1:8000/dashboard` — HTML dashboard (requires login)
+- `http://127.0.0.1:8000/dashboard/audit` — audit log (auditor/admin)
 - `http://127.0.0.1:8000/actionrail/manifest.json` — agent manifest
+
+Optional: set `ACTIONRAIL_SESSION_SECRET` for non-dev sessions (dev fallback exists with warning in code).
 
 ### 5. Run the demo flow
 

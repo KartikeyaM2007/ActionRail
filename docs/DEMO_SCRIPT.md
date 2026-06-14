@@ -25,14 +25,14 @@ ActionRail turns every risky agent action into a **transaction** with a determin
 
 ## What the dashboard shows
 
-Open: <http://127.0.0.1:8000/dashboard>
+Open: <http://127.0.0.1:8000/dashboard> — you will be redirected to `/login` if not signed in.
 
-The dashboard is a **human review surface**, not the product. It shows:
+Sign in with local demo credentials (see README). For a multi-role walkthrough:
 
-- **Queue statistics** — current operational state (pending approval, blocked, executed).
-- **RUN DEMO PREFLIGHT** — three one-click sample invoices.
-- **Transaction queue** — Preflight Decision (historical policy outcome) vs Status (current lifecycle state).
-- **Upload real invoice** — evidence intake with mandatory review before transaction creation.
+1. **controller@example.local** — upload/review invoice or run demo preflight.
+2. **approver@example.local** — approve the transaction.
+3. **executor@example.local** — execute and create accounting sandbox writeback.
+4. **auditor@example.local** — open `/dashboard/audit` and confirm audit events.
 
 Reset before recording:
 
@@ -40,6 +40,14 @@ Reset before recording:
 python scripts/reset_demo_db.py
 uvicorn app.main:app --reload
 ```
+
+The dashboard is a **human review surface**, not the product. It shows:
+
+- **Queue statistics** — current operational state (pending approval, blocked, executed).
+- **RUN DEMO PREFLIGHT** — three one-click sample invoices (controller/admin).
+- **Transaction queue** — Preflight Decision (historical policy outcome) vs Status (current lifecycle state).
+- **Upload real invoice** — evidence intake with mandatory review before transaction creation (controller/admin).
+- **Signed-in user + audit log link** — control-plane header for auditor/admin.
 
 ---
 

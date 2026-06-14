@@ -1,0 +1,14 @@
+<nav class="neo-control-nav" aria-label="Control plane">
+  {% if current_user %}
+  <span class="neo-tag">
+    Signed in as {{ current_user.email }} · role {{ current_user.role }}
+  </span>
+  {% if can_view_audit %}
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/audit">Audit log</a>
+  {% endif %}
+  <form class="neo-form-inline" method="post" action="/logout">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <button class="neo-btn neo-btn--ghost" type="submit">Logout</button>
+  </form>
+  {% endif %}
+</nav>

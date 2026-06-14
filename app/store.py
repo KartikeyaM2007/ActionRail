@@ -124,8 +124,48 @@ def init_db(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             UNIQUE(transaction_id, provider)
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS audit_events (
+            id TEXT PRIMARY KEY,
+            actor_user_id TEXT,
+            actor_email TEXT,
+            actor_role TEXT,
+            action TEXT NOT NULL,
+            target_type TEXT NOT NULL,
+            target_id TEXT,
+            request_id TEXT,
+            event_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """
     )
+    conn.commit()
+
+
+def seed_demo_users(conn: sqlite3.Connection) -> None:
+    from app.auth import DEMO_USERS, hash_password
+
+    for user_id, email, display_name, role, password in DEMO_USERS:
+        pw_hash, salt = hash_password(password)
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO users(
+                id, email, display_name, role, password_hash, password_salt, is_active, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+            """,
+            (user_id, email, display_name, role, pw_hash, salt, utc_now().isoformat()),
+        )
     conn.commit()
 
 
@@ -189,6 +229,7 @@ def seed_demo(conn: sqlite3.Connection) -> None:
         ),
     )
     conn.commit()
+    seed_demo_users(conn)
 
 
 def get_policy(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -196,6 +237,125 @@ def get_policy(conn: sqlite3.Connection) -> dict[str, Any]:
     if not row:
         return {}
     return loads(row["value_json"], {})
+
+
+def create_user(
+    conn: sqlite3.Connection,
+    *,
+    user_id: str,
+    email: str,
+    display_name: str,
+    role: str,
+    password_hash: str,
+    password_salt: str,
+    is_active: bool = True,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO users(id, email, display_name, role, password_hash, password_salt, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            email,
+            display_name,
+            role,
+            password_hash,
+            password_salt,
+            1 if is_active else 0,
+            utc_now().isoformat(),
+        ),
+    )
+    conn.commit()
+
+
+def get_user_by_email(conn: sqlite3.Connection, email: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM users WHERE email=?", (email.lower(),)).fetchone()
+    if not row:
+        return None
+    return _user_row_to_dict(row)
+
+
+def get_user_by_id(conn: sqlite3.Connection, user_id: str) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    if not row:
+        return None
+    return _user_row_to_dict(row)
+
+
+def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = conn.execute("SELECT * FROM users ORDER BY email").fetchall()
+    return [_user_row_to_dict(row) for row in rows]
+
+
+def _user_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["is_active"] = bool(data.get("is_active", 1))
+    return data
+
+
+def save_audit_event(
+    conn: sqlite3.Connection,
+    *,
+    event_id: str,
+    actor_user_id: str | None,
+    actor_email: str | None,
+    actor_role: str | None,
+    action: str,
+    target_type: str,
+    target_id: str | None,
+    request_id: str | None,
+    event_json: dict[str, Any] | None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO audit_events(
+            id, actor_user_id, actor_email, actor_role, action, target_type,
+            target_id, request_id, event_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_id,
+            actor_user_id,
+            actor_email,
+            actor_role,
+            action,
+            target_type,
+            target_id,
+            request_id,
+            dumps(event_json or {}),
+            utc_now().isoformat(),
+        ),
+    )
+    conn.commit()
+
+
+def list_audit_events(conn: sqlite3.Connection, *, limit: int = 100) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM audit_events ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [_audit_row_to_dict(row) for row in rows]
+
+
+def list_audit_events_for_transaction(
+    conn: sqlite3.Connection, transaction_id: str, *, limit: int = 50
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT * FROM audit_events
+        WHERE target_id=? OR instr(event_json, ?) > 0
+        ORDER BY created_at DESC LIMIT ?
+        """,
+        (transaction_id, transaction_id, limit),
+    ).fetchall()
+    return [_audit_row_to_dict(row) for row in rows]
+
+
+def _audit_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["event"] = loads(data.pop("event_json"), {})
+    return data
 
 
 def cleanup_expired_locks(conn: sqlite3.Connection) -> None:

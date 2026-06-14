@@ -1625,4 +1625,68 @@ pytest -q
 
 ## What the user should send to ChatGPT
 
-Copy paste this whole latest `ForKnow.md` entry — everything from `# Cursor Work Update: Phase 4A — Final MVP completion and public release polish` down to the end of this section.
+Copy paste this whole latest `ForKnow.md` entry — everything from `# Cursor Work Update: Phase 4A — Final MVP completion and public release polish` down to the end of that section.
+
+---
+
+# Cursor Work Update: Phase 5A — Authenticated control plane (auth, RBAC, CSRF, audit ledger)
+
+## Date
+
+2026-06-14
+
+## Prompt I worked on
+
+Phase 5A: local dashboard auth, RBAC, CSRF, audit ledger. JSON API unchanged. All tests green.
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| `app/auth.py` | New — PBKDF2, roles, permissions, demo users, CSRF |
+| `app/control.py` | New — session guards, audit, forbidden |
+| `app/store.py` | users + audit_events tables and helpers |
+| `app/main.py` | SessionMiddleware, login/logout/audit, RBAC/CSRF on dashboard |
+| `app/templates/login.html`, `forbidden.html`, `audit_log.html` | New |
+| `app/templates/partials/control_nav.html` | New nav partial |
+| Dashboard/upload/review/detail/receipt/writeback templates | Nav + CSRF + RBAC |
+| `scripts/reset_demo_db.py` | Reset users + audit_events |
+| `tests/dash_helpers.py`, `tests/test_auth.py` | New test helpers + 20 auth tests |
+| All dashboard-related test files | Login + CSRF via dash_helpers |
+| README + docs + TASKS + HANDOFF + CHANGELOG + ForKnow.md | Phase 5A docs |
+
+## What I added
+
+- Login/logout, six demo roles, CSRF on dashboard POSTs, audit ledger + transaction audit trail
+- 175 tests total (20 new auth tests)
+
+## What I modified
+
+- Approvals use logged-in user email; reset script includes auth tables
+
+## What I did not change
+
+- JSON API shapes, receipt signature payload, simulated execution, no OAuth/external IdP
+
+## Tests run
+
+```bash
+pytest -q
+```
+
+```text
+175 passed in 98.39s (0:01:38)
+```
+
+## Manual smoke command summary
+
+Browser uvicorn smoke not re-run this session. Multi-role flow covered by `tests/test_auth.py`. Manual: `uvicorn app.main:app --reload` then controller → approver → executor → auditor per README.
+
+## Current status
+
+- App/API: 175/175 tests pass; dashboard requires login; JSON API unchanged
+- Known issues: dev session secret fallback if `ACTIONRAIL_SESSION_SECRET` unset
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest `ForKnow.md` entry from `# Cursor Work Update: Phase 5A` through the end of this section.

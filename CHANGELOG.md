@@ -6,6 +6,43 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-14 — Authenticated control plane: local auth, RBAC, CSRF, audit ledger (Phase 5A)
+
+Local dashboard control-plane foundation. JSON API response shapes unchanged. Receipt signature payload unchanged. **175 tests pass.**
+
+### Added
+
+- **`app/auth.py`** — PBKDF2 password hashing, six demo roles, permission map, CSRF helpers (stdlib only).
+- **`app/control.py`** — session user resolution, login/logout, RBAC guards, audit writing, forbidden rendering.
+- **`users` and `audit_events` SQLite tables** + store helpers in `app/store.py`.
+- **Routes:** `GET/POST /login`, `POST /logout`, `GET /dashboard/audit`.
+- **Templates:** `login.html`, `forbidden.html`, `audit_log.html`, `partials/control_nav.html`.
+- **CSRF** hidden inputs on all dashboard POST forms.
+- **Audit events** for login, logout, authorization_denied, csrf_failed, demo preflight, upload, review submit, approve/reject/execute, receipt view, writeback create/view.
+- **Transaction-level audit trail** on transaction detail page.
+- **`tests/test_auth.py`** — 20 auth/RBAC/CSRF/audit tests.
+- **`tests/dash_helpers.py`** — shared login/CSRF helpers for dashboard tests.
+
+### Changed
+
+- **`app/main.py`** — SessionMiddleware, protected dashboard routes, RBAC enforcement, audit logging; approvals use logged-in user email.
+- **Dashboard templates** — control nav, CSRF tokens, role-gated action buttons.
+- **`scripts/reset_demo_db.py`** — drops/resets `users` and `audit_events`.
+- **Existing dashboard tests** updated for login + CSRF.
+- **Docs:** README, ARCHITECTURE, SAFETY_BOUNDARY, DEMO_SCRIPT, PROJECT_COMPLETION, RELEASE_CHECKLIST, TASKS, HANDOFF.
+
+### Tests
+
+```bash
+pytest -q
+```
+
+```text
+175 passed in 88.20s
+```
+
+---
+
 ## 2026-06-14 — Final MVP completion and public release polish (Phase 4A)
 
 Documentation and dashboard wording polish for GitHub-ready MVP presentation. No product logic changes. **155 tests pass.**

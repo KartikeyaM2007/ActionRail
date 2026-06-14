@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 _MINIMAL_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -57,8 +58,12 @@ def _upload(client, monkeypatch=None, ocr_text=None):
                 "status": "not_available", "engine": "none", "text": None, "notes": [],
             },
         )
-    r = client.post("/dashboard/invoices/upload",
-                    files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")})
+    r = dash_post(
+        client,
+        "/dashboard/invoices/upload",
+        role="controller",
+        files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")},
+    )
     assert r.status_code == 303
     return r.headers["location"].split("/")[-1]
 
@@ -68,7 +73,7 @@ def _upload(client, monkeypatch=None, ocr_text=None):
 # ---------------------------------------------------------------------------
 
 def test_upload_page_contains_review_copy(client):
-    r = client.get("/dashboard/invoices/upload")
+    r = dash_get(client, "/dashboard/invoices/upload", role="controller")
     assert r.status_code == 200
     body = r.text
     assert "review" in body.lower()
@@ -82,7 +87,7 @@ def test_upload_page_contains_review_copy(client):
 
 def test_review_page_contains_safety_copy(client, monkeypatch):
     doc_id = _upload(client, monkeypatch)
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     body = r.text
     assert "No real money moves" in body
@@ -100,7 +105,7 @@ def test_review_page_shows_manual_review_warning_when_amount_missing(client, mon
         client, monkeypatch,
         ocr_text="Invoice no: INV-001\nItems qty 4,00"
     )
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     body = r.text
     assert "manual review required" in body.lower() or "not confidently extracted" in body.lower()
@@ -116,7 +121,7 @@ def test_review_page_has_editable_fields(client, monkeypatch):
         client, monkeypatch,
         ocr_text="Invoice no: INV-PREFILL\nGrand Total: $500.00"
     )
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     body = r.text
     # Editable input fields must be present
@@ -137,7 +142,7 @@ def test_review_page_has_extracted_text_collapsible(client, monkeypatch):
         client, monkeypatch,
         ocr_text="Invoice no: INV-DETAILS\nDate: 2026-01-01\nGrand Total: $100.00"
     )
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     body = r.text
     assert "<details" in body
@@ -150,13 +155,15 @@ def test_review_page_has_extracted_text_collapsible(client, monkeypatch):
 
 def test_transaction_detail_shows_uploaded_evidence(client, monkeypatch):
     doc_id = _upload(client, monkeypatch)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "INV-EV-001", "vendor": "Acme Services", "amount": "50000"},
     )
     assert r.status_code == 303
     txn_id = r.headers["location"].split("/")[-1]
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     body = detail.text
     # Uploaded evidence section
@@ -177,8 +184,10 @@ def test_transaction_detail_shows_uploaded_evidence(client, monkeypatch):
 
 def test_two_step_upload_flow_still_works(client, monkeypatch):
     doc_id = _upload(client, monkeypatch)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "INV-FLOW-001", "vendor": "Acme Services", "amount": "30000"},
     )
     assert r.status_code == 303
@@ -191,10 +200,10 @@ def test_two_step_upload_flow_still_works(client, monkeypatch):
 
 def test_demo_flow_still_works(client):
     import re
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     assert "approval required" in r.text.lower()
 

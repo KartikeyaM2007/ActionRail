@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 _MINIMAL_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -57,8 +58,10 @@ def client():
 
 
 def _upload_file(client, file_bytes=_MINIMAL_PNG, filename="invoice.png", content_type="image/png"):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": (filename, file_bytes, content_type)},
     )
     assert r.status_code == 303
@@ -70,7 +73,7 @@ def _upload_file(client, file_bytes=_MINIMAL_PNG, filename="invoice.png", conten
 # ---------------------------------------------------------------------------
 
 def test_upload_page_loads(client):
-    r = client.get("/dashboard/invoices/upload")
+    r = dash_get(client, "/dashboard/invoices/upload", role="controller")
     assert r.status_code == 200
     assert "Upload invoice" in r.text
     assert "review" in r.text.lower()
@@ -81,8 +84,10 @@ def test_upload_page_loads(client):
 # ---------------------------------------------------------------------------
 
 def test_post_upload_redirects_to_review(client):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")},
     )
     assert r.status_code == 303
@@ -92,8 +97,10 @@ def test_post_upload_redirects_to_review(client):
 
 
 def test_post_upload_pdf_redirects_to_review(client):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.pdf", _MINIMAL_PDF, "application/pdf")},
     )
     assert r.status_code == 303
@@ -106,14 +113,14 @@ def test_post_upload_pdf_redirects_to_review(client):
 
 def test_review_page_loads(client):
     doc_id = _upload_file(client)
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     assert "Review extracted invoice" in r.text
     assert doc_id in r.text
 
 
 def test_review_page_404_for_unknown_doc(client):
-    r = client.get("/dashboard/invoices/review/doc_doesnotexist")
+    r = dash_get(client, "/dashboard/invoices/review/doc_doesnotexist", role="controller")
     assert r.status_code == 404
 
 
@@ -134,7 +141,7 @@ def test_review_page_prefills_extracted_fields(client, monkeypatch):
         },
     )
     doc_id = _upload_file(client)
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     # Pre-filled invoice_id should appear in the form
     assert "INV-PREFILL-001" in r.text
@@ -146,8 +153,10 @@ def test_review_page_prefills_extracted_fields(client, monkeypatch):
 
 def test_review_submit_creates_transaction(client):
     doc_id = _upload_file(client)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={
             "invoice_id": "INV-REVIEW-001",
             "vendor": "Acme Services",
@@ -161,8 +170,10 @@ def test_review_submit_creates_transaction(client):
 
 def test_review_submit_missing_all_required_fields_returns_400(client):
     doc_id = _upload_file(client)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={},  # nothing
     )
     assert r.status_code == 400
@@ -185,8 +196,10 @@ def test_manual_amount_override_wins(client, monkeypatch):
         },
     )
     doc_id = _upload_file(client)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={
             "invoice_id": "TEST-OVERRIDE",
             "vendor": "Acme Services",
@@ -215,8 +228,10 @@ def test_review_submit_missing_amount_returns_400(client, monkeypatch):
         },
     )
     doc_id = _upload_file(client)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "X", "vendor": "Acme"},  # no amount
     )
     assert r.status_code == 400
@@ -229,8 +244,10 @@ def test_review_submit_missing_amount_returns_400(client, monkeypatch):
 
 def test_evidence_ref_in_transaction(client):
     doc_id = _upload_file(client)
-    r = client.post(
+    r = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "INV-EVID", "vendor": "Acme Services", "amount": "10000"},
     )
     assert r.status_code == 303
@@ -248,10 +265,10 @@ def test_evidence_ref_in_transaction(client):
 
 def test_existing_demo_flow_unaffected(client):
     import re
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     assert "approval required" in detail.text.lower()
 

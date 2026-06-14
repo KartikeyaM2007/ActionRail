@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.store import connect, init_db, seed_demo
+from tests.dash_helpers import dash_get, dash_post
 
 
 # ---------------------------------------------------------------------------
@@ -66,8 +67,10 @@ _MINIMAL_PNG = (
 def _upload_and_get_doc_id(client: TestClient, file_bytes=_MINIMAL_PNG,
                             filename="invoice.png", content_type="image/png") -> str:
     """Helper: POST file to upload route, return doc_id from review redirect."""
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": (filename, file_bytes, content_type)},
     )
     assert r.status_code == 303, r.text
@@ -76,10 +79,12 @@ def _upload_and_get_doc_id(client: TestClient, file_bytes=_MINIMAL_PNG,
     return location.split("/")[-1]
 
 
-def _submit_review(client: TestClient, doc_id: str, **fields) -> TestClient:
+def _submit_review(client: TestClient, doc_id: str, **fields):
     """Helper: POST to review submit with given fields, return response."""
-    return client.post(
+    return dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data=fields,
     )
 
@@ -89,7 +94,7 @@ def _submit_review(client: TestClient, doc_id: str, **fields) -> TestClient:
 # ---------------------------------------------------------------------------
 
 def test_upload_page_loads(client: TestClient):
-    r = client.get("/dashboard/invoices/upload")
+    r = dash_get(client, "/dashboard/invoices/upload", role="controller")
     assert r.status_code == 200
     assert "Upload invoice" in r.text
     assert "No real money moves" in r.text
@@ -101,8 +106,10 @@ def test_upload_page_loads(client: TestClient):
 # ---------------------------------------------------------------------------
 
 def test_upload_invalid_extension_rejected(client: TestClient):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("malware.exe", b"MZ...", "application/octet-stream")},
     )
     assert r.status_code == 400
@@ -114,8 +121,10 @@ def test_upload_invalid_extension_rejected(client: TestClient):
 # ---------------------------------------------------------------------------
 
 def test_upload_redirects_to_review_not_transaction(client: TestClient):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")},
     )
     assert r.status_code == 303
@@ -131,7 +140,7 @@ def test_upload_redirects_to_review_not_transaction(client: TestClient):
 
 def test_review_page_loads(client: TestClient):
     doc_id = _upload_and_get_doc_id(client)
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     assert "Review extracted invoice" in r.text
     assert doc_id in r.text
@@ -150,7 +159,7 @@ def test_review_page_shows_extraction_notes(client: TestClient, monkeypatch):
         },
     )
     doc_id = _upload_and_get_doc_id(client)
-    r = client.get(f"/dashboard/invoices/review/{doc_id}")
+    r = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert r.status_code == 200
     # Extraction notes or pre-filled field value should appear
     assert "INV-99" in r.text or "invoice_id" in r.text
@@ -183,7 +192,7 @@ def test_review_submit_transaction_detail_accessible(client: TestClient):
     )
     assert r.status_code == 303
     txn_id = r.headers["location"].split("/")[-1]
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     assert "INV-UPLOAD-002" in detail.text
     assert "Acme Services" in detail.text
@@ -325,7 +334,7 @@ def test_image_upload_with_mocked_ocr(client: TestClient, monkeypatch):
         },
     )
     doc_id = _upload_and_get_doc_id(client)
-    review = client.get(f"/dashboard/invoices/review/{doc_id}")
+    review = dash_get(client, f"/dashboard/invoices/review/{doc_id}", role="controller")
     assert review.status_code == 200
     # Extracted invoice_id should be pre-filled
     assert "INV-OCR-001" in review.text
@@ -386,10 +395,10 @@ def test_pdf_extraction_on_non_pdf(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_existing_demo_flows_unaffected(client: TestClient):
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"/dashboard/transactions/(txn_[a-f0-9]+)", r.headers["location"]).group(1)
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     assert "approval required" in detail.text.lower()
 
@@ -412,7 +421,7 @@ def test_json_api_shapes_unchanged(client: TestClient):
 # ---------------------------------------------------------------------------
 
 def test_dashboard_shows_upload_link(client: TestClient):
-    r = client.get("/dashboard")
+    r = dash_get(client, "/dashboard", role="controller")
     assert r.status_code == 200
     assert "Upload real invoice" in r.text
     assert "/dashboard/invoices/upload" in r.text

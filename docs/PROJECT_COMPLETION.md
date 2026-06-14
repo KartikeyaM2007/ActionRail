@@ -53,6 +53,7 @@ The following are implemented and tested:
 ```bash
 pytest -q
 # 154 passed (as of Phase 4A)
+# 175 passed (as of Phase 5A)
 ```
 
 Test coverage includes:
@@ -90,7 +91,9 @@ See [`docs/SAFETY_BOUNDARY.md`](SAFETY_BOUNDARY.md).
 | Limitation | Notes |
 |---|---|
 | SQLite single-file DB | Not multi-tenant or HA |
-| No production auth | Open local API |
+| Local demo dashboard auth only | Seeded passwords — not production IdP/OAuth |
+| JSON API unauthenticated | Agent routes unchanged in Phase 5A |
+| Audit ledger is local SQLite | Not immutable/audit-grade storage |
 | OCR optional | Manual field entry always available |
 | Regex PDF extraction | Basic; not ML-based |
 | Dashboard is secondary | API is the product |
@@ -106,7 +109,7 @@ Deferred intentionally (see `PROJECT.md` and `DECISIONS.md`):
 
 1. Expand backend-policy test coverage (intent lock expiry, GST mismatch, etc.).
 2. MCP server exposing manifest tools.
-3. Production auth, RBAC, multi-tenant.
+3. Production auth on JSON API, OAuth/OIDC, multi-tenant.
 4. Real provider sandbox connectors (QuickBooks, Xero, Tally).
 5. Email/document ingestion.
 6. Managed OCR with confidence SLAs.

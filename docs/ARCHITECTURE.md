@@ -48,6 +48,16 @@ Readable overview for GitHub reviewers, interviewers, and the next developer pic
 
 Server-rendered HTML forms POST to dashboard routes that call the same internal helpers as the JSON API. `303 See Other` redirects after every state change.
 
+**Phase 5A control plane (local demo):**
+
+- Session auth via Starlette `SessionMiddleware` (`ACTIONRAIL_SESSION_SECRET`; dev fallback documented in code).
+- Six demo roles with RBAC on dashboard actions (`app/auth.py`, `app/control.py`).
+- CSRF tokens on all dashboard POST forms.
+- Audit ledger (`audit_events` table) with `/dashboard/audit` for auditor/admin.
+- Transaction-level audit trail on detail pages.
+
+JSON API routes remain unauthenticated in this phase — agent integrations unchanged.
+
 ---
 
 ## Transaction lifecycle

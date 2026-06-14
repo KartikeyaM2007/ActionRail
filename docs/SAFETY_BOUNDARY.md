@@ -27,7 +27,8 @@ This MVP explicitly does **not**:
 - Post to QuickBooks, Xero, Zoho, Tally, or any live ERP/ledger.
 - Connect to Gmail, Outlook, or external email ingestion.
 - Call Stripe, Razorpay, or payment processors.
-- Provide production authentication, RBAC, or multi-tenant isolation.
+- Provide production authentication on the **JSON API**, RBAC policy admin, or multi-tenant isolation.
+- Replace local demo dashboard auth with a real identity provider (OAuth/OIDC, SSO, etc.).
 - Guarantee OCR accuracy — extraction assists review; humans confirm before transaction creation.
 - Replace your accounting system, AP workflow, or compliance program.
 
@@ -102,6 +103,20 @@ In this codebase, no route or adapter:
 - Writes to external ledgers or databases.
 
 If you add real integrations, that requires a new phase, new tests, new decision entries, and the production requirements below.
+
+---
+
+## Local demo dashboard auth (Phase 5A)
+
+The dashboard requires sign-in with seeded demo users (`users` table). This is **not production auth**:
+
+- Stdlib PBKDF2 password hashing only (`app/auth.py`).
+- Session cookie via `ACTIONRAIL_SESSION_SECRET` (dev fallback in code).
+- RBAC on dashboard routes; JSON API unchanged.
+- CSRF on dashboard POST forms.
+- Audit ledger in SQLite (`audit_events`).
+
+Production still requires real identity, secret management, and immutable audit storage.
 
 ---
 

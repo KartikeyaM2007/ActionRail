@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audit log — ActionRail Finance</title>
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard">← Dashboard</a>
+        <h1 class="neo-title" style="margin-top: 16px">Audit log</h1>
+        <p class="neo-subtitle">Per-action control-plane events · latest {{ events|length }}</p>
+      </div>
+      {% include "partials/control_nav.html" %}
+    </header>
+
+    <section class="neo-section" aria-labelledby="audit-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="audit-heading">Events</h2>
+      </div>
+      {% if events %}
+      <table class="neo-table">
+        <thead>
+          <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Actor</th>
+            <th scope="col">Role</th>
+            <th scope="col">Action</th>
+            <th scope="col">Target</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in events %}
+          <tr>
+            <td><code>{{ ev.created_at }}</code></td>
+            <td>{{ ev.actor_email or '—' }}</td>
+            <td>{{ ev.actor_role or '—' }}</td>
+            <td><code>{{ ev.action }}</code></td>
+            <td><code>{{ ev.target_type }}{% if ev.target_id %}:{{ ev.target_id }}{% endif %}</code></td>
+            <td>
+              <details class="neo-details">
+                <summary>JSON</summary>
+                <div class="neo-details__body">
+                  <pre class="neo-pre neo-pre--small">{{ ev.event | tojson(indent=2) }}</pre>
+                </div>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="neo-alert neo-alert--empty">No audit events yet.</div>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

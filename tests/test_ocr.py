@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -129,8 +130,10 @@ def test_upload_png_without_ocr_redirects(client: TestClient, monkeypatch):
     )
 
     # Step 1: upload → review (not transaction)
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")},
     )
     assert r.status_code == 303
@@ -138,8 +141,10 @@ def test_upload_png_without_ocr_redirects(client: TestClient, monkeypatch):
 
     # Step 2: submit review with manual fields → transaction
     doc_id = r.headers["location"].split("/")[-1]
-    r2 = client.post(
+    r2 = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "INV-OCR-001", "vendor": "Acme Services", "amount": "30000"},
     )
     assert r2.status_code == 303
@@ -167,8 +172,10 @@ def test_upload_stores_ocr_not_available_in_notes(client: TestClient, monkeypatc
     )
 
     # Step 1: upload → review
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.png", _MINIMAL_PNG, "image/png")},
     )
     assert r.status_code == 303
@@ -181,8 +188,10 @@ def test_upload_stores_ocr_not_available_in_notes(client: TestClient, monkeypatc
     assert any("pytesseract" in n.lower() or "ocr" in n.lower() for n in notes)
 
     # Step 2: submit review → transaction (with manual fields)
-    r2 = client.post(
+    r2 = dash_post(
+        client,
         f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
         data={"invoice_id": "INV-OCR-002", "vendor": "Acme Services", "amount": "30000"},
     )
     assert r2.status_code == 303
@@ -214,8 +223,10 @@ startxref
 
 
 def test_pdf_upload_still_works(client: TestClient):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("invoice.pdf", _MINIMAL_PDF, "application/pdf")},
         data={
             "invoice_id": "INV-PDF-OCR-001",
@@ -233,10 +244,10 @@ def test_pdf_upload_still_works(client: TestClient):
 def test_existing_demo_flow_unaffected(client: TestClient):
     import re
 
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     assert "approval required" in r.text.lower()
 

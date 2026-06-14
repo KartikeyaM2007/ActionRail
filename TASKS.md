@@ -143,6 +143,17 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
 - **`docs/screenshots/README.md`**: canonical 01–13 list + optional-for-tests note.
 - **Tests: 155/155 passing.**
 
+### Phase 5A — Authenticated control plane (done, this commit)
+
+- **`app/auth.py`**, **`app/control.py`**: local PBKDF2 auth, six roles, RBAC, CSRF, audit helpers.
+- **`app/store.py`**: `users`, `audit_events` tables + helpers; demo users seeded idempotently.
+- **`app/main.py`**: SessionMiddleware, login/logout/audit routes, protected dashboard routes, audit events.
+- **Templates**: login, forbidden, audit log, control nav partial; CSRF on all dashboard POST forms.
+- **`scripts/reset_demo_db.py`**: resets users + audit_events.
+- **`tests/test_auth.py`**, **`tests/dash_helpers.py`**; existing dashboard tests updated for auth/CSRF.
+- **Docs** updated (README demo credentials, ARCHITECTURE, SAFETY_BOUNDARY, DEMO_SCRIPT, etc.).
+- **Tests: 175/175 passing.**
+
 ---
 
 ## Next tasks
@@ -178,6 +189,6 @@ None right now. Future phases (real ingestion, integrations, MCP server, payment
 ## Testing status
 
 - Test runner: `pytest -q`.
-- Last known state (2026-06-14, after Phase 4A): **155 / 155 tests pass**.
+- Last known state (2026-06-14, after Phase 5A): **175 / 175 tests pass**.
 - Dashboard tests use an autouse fixture that monkeypatches `app.main.conn` to a fresh per-test SQLite DB seeded with demo data. Without isolation, the persistent intent-lock TTL (15 minutes) makes serial demo-preflights of the same invoice land as `decision=blocked`.
 - **Rule**: do not remove tests. Add new tests under `tests/` for every new policy/transaction behavior.

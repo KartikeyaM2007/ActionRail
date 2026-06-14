@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.extraction import _detect_currency, _extract_amount_with_confidence, extract_fields_from_text
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -175,13 +176,21 @@ def test_manual_amount_override_wins(client: TestClient, monkeypatch):
         },
     )
     # Step 1: upload → review
-    r = client.post("/dashboard/invoices/upload",
-                    files={"file": ("inv.png", _MINIMAL_PNG, "image/png")})
+    r = dash_post(
+        client,
+        "/dashboard/invoices/upload",
+        role="controller",
+        files={"file": ("inv.png", _MINIMAL_PNG, "image/png")},
+    )
     assert r.status_code == 303
     doc_id = r.headers["location"].split("/")[-1]
     # Step 2: submit review with manual amount
-    r = client.post(f"/dashboard/invoices/review/{doc_id}/submit",
-                    data={"invoice_id": "TEST-001", "vendor": "Acme Services", "amount": "99999"})
+    r = dash_post(
+        client,
+        f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
+        data={"invoice_id": "TEST-001", "vendor": "Acme Services", "amount": "99999"},
+    )
     assert r.status_code == 303
     txn_id = r.headers["location"].split("/")[-1]
     from app import main as main_mod
@@ -203,13 +212,21 @@ def test_upload_without_confident_amount_returns_400(client: TestClient, monkeyp
             "notes": [],
         },
     )
-    r = client.post("/dashboard/invoices/upload",
-                    files={"file": ("inv.png", _MINIMAL_PNG, "image/png")})
+    r = dash_post(
+        client,
+        "/dashboard/invoices/upload",
+        role="controller",
+        files={"file": ("inv.png", _MINIMAL_PNG, "image/png")},
+    )
     assert r.status_code == 303
     doc_id = r.headers["location"].split("/")[-1]
     # Submit review without amount — should fail
-    r = client.post(f"/dashboard/invoices/review/{doc_id}/submit",
-                    data={"invoice_id": "TEST-002", "vendor": "Acme Services"})
+    r = dash_post(
+        client,
+        f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
+        data={"invoice_id": "TEST-002", "vendor": "Acme Services"},
+    )
     assert r.status_code == 400
     assert "amount" in r.text.lower() or "Amount" in r.text
 
@@ -224,12 +241,20 @@ def test_upload_400_message_mentions_manual_entry(client: TestClient, monkeypatc
             "status": "not_available", "engine": "none", "text": None, "notes": [],
         },
     )
-    r = client.post("/dashboard/invoices/upload",
-                    files={"file": ("inv.png", _MINIMAL_PNG, "image/png")})
+    r = dash_post(
+        client,
+        "/dashboard/invoices/upload",
+        role="controller",
+        files={"file": ("inv.png", _MINIMAL_PNG, "image/png")},
+    )
     assert r.status_code == 303
     doc_id = r.headers["location"].split("/")[-1]
-    r = client.post(f"/dashboard/invoices/review/{doc_id}/submit",
-                    data={"vendor": "Acme", "invoice_id": "X"})
+    r = dash_post(
+        client,
+        f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
+        data={"vendor": "Acme", "invoice_id": "X"},
+    )
     assert r.status_code == 400
     assert any(w in r.text.lower() for w in ("manually", "manual", "amount", "required"))
 
@@ -267,8 +292,10 @@ trailer<</Size 4/Root 1 0 R>>
 startxref
 190
 %%EOF"""
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("inv.pdf", _MINIMAL_PDF, "application/pdf")},
         data={"invoice_id": "INV-PDF", "vendor": "Acme Services", "amount": "10000"},
     )

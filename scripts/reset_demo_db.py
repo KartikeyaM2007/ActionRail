@@ -30,6 +30,7 @@ from app.store import DB_PATH, connect, init_db, seed_demo  # noqa: E402
 
 # Tables this project owns. Listed in dependency-safe order (children first).
 PROJECT_TABLES: tuple[str, ...] = (
+    "audit_events",
     "accounting_writebacks",
     "intent_locks",
     "transactions",
@@ -38,6 +39,7 @@ PROJECT_TABLES: tuple[str, ...] = (
     "contracts",
     "vendors",
     "policies",
+    "users",
 )
 
 
@@ -62,7 +64,7 @@ def main() -> None:
     target = reset()
     print(f"  ✓ Dropped project tables: {', '.join(PROJECT_TABLES)}")
     print("  ✓ Schema recreated.")
-    print("  ✓ Seed data loaded (vendors, contracts, default policy, INV-1042 historical invoice).")
+    print("  ✓ Seed data loaded (vendors, contracts, default policy, demo users, INV-1042 historical invoice).")
     print(f"Done. Reset {target}.")
     print("If uvicorn was running with --reload, restart it to see a clean queue.")
 

@@ -63,12 +63,16 @@ Start the server:
 uvicorn app.main:app --reload
 ```
 
-Open: <http://127.0.0.1:8000/dashboard>
-
-- [ ] Dashboard loads with clean queue (after reset).
-- [ ] "RUN DEMO PREFLIGHT" buttons visible.
+- [ ] `/dashboard` redirects to `/login` when signed out.
+- [ ] Login as `controller@example.local` / `controller123` succeeds.
+- [ ] Dashboard loads with signed-in user visible in header.
+- [ ] "RUN DEMO PREFLIGHT" buttons visible (controller).
 - [ ] Stats cards visible (Total · Approval required · Needs evidence · Blocked · Executed).
-- [ ] "Upload real invoice" button visible.
+- [ ] "Upload real invoice" button visible (controller/admin).
+- [ ] Logout returns to `/login`.
+- [ ] Login as `auditor@example.local` → `/dashboard/audit` shows audit events.
+
+Open: <http://127.0.0.1:8000/dashboard>
 
 ---
 
@@ -77,7 +81,7 @@ Open: <http://127.0.0.1:8000/dashboard>
 Run from the dashboard:
 
 - [ ] Click **Approval Required Invoice** → `decision=approval_required`, checks shown.
-- [ ] Click **Approve** → status becomes `approved`.
+- [ ] Click **Approve** → status becomes `approved` (sign in as approver if using RBAC walkthrough).
 - [ ] Click **Execute** → status becomes `executed`.
 - [ ] Click **View Receipt** → signed HMAC-SHA256 receipt with canonical payload visible.
 - [ ] Click **Create Accounting Sandbox Draft Bill** → writeback page shows safety banner, draft bill JSON, and audit packet JSON.

@@ -76,7 +76,7 @@ The primitive is proved when the three demo flows all behave correctly. That is 
 
 ## Current completion status
 
-ActionRail Finance is MVP-complete as a local execution-control prototype. It demonstrates invoice evidence intake, review, policy preflight, approval, simulated execution, signed receipts, and local accounting sandbox writeback. It is not production finance automation.
+ActionRail Finance is MVP-complete as a local execution-control prototype with a **local control-plane foundation** (login, RBAC, CSRF, audit ledger on dashboard routes). It demonstrates invoice evidence intake, review, policy preflight, approval, simulated execution, signed receipts, and local accounting sandbox writeback. It is not production finance automation.
 
 See [`docs/PROJECT_COMPLETION.md`](docs/PROJECT_COMPLETION.md) for the full completion checklist.
 
@@ -91,7 +91,7 @@ These are deliberate deferments, not oversights.
 - **Image OCR is optional, not installed by default.** Install `pytesseract` + the Tesseract binary for auto-extraction from image invoices. Without it, image uploads still work — enter fields manually on the review screen. See [`docs/OCR.md`](docs/OCR.md).
 - **Digital PDF text extraction is basic** — regex-based, works for machine-generated PDFs. Scanned-to-image PDFs with no embedded text need OCR.
 - **Amount extraction is intentionally conservative.** If amount confidence is low, the review screen asks for manual entry rather than creating a transaction with a guessed amount.
-- No production authentication or RBAC.
+- No production authentication or RBAC on the **JSON API** (dashboard has local demo auth; see below).
 - No multi-tenant isolation.
 - No external financial mutation of any kind.
 
@@ -186,11 +186,31 @@ uvicorn app.main:app --reload
 ## URLs
 
 ```text
-Dashboard:  http://127.0.0.1:8000/dashboard
+Dashboard:  http://127.0.0.1:8000/dashboard  (redirects to /login when signed out)
+Login:      http://127.0.0.1:8000/login
 Swagger:    http://127.0.0.1:8000/docs
 Manifest:   http://127.0.0.1:8000/actionrail/manifest.json
 Health:     http://127.0.0.1:8000/health
 ```
+
+## Local demo authentication (dashboard only)
+
+The dashboard control plane requires sign-in. **Local demo credentials only — not production authentication.**
+
+```text
+admin@example.local / admin123
+controller@example.local / controller123
+approver@example.local / approver123
+executor@example.local / executor123
+auditor@example.local / auditor123
+viewer@example.local / viewer123
+```
+
+Roles: **viewer** (read dashboard/receipts) · **controller** (upload/review/demo preflight) · **approver** (approve/reject) · **executor** (execute + accounting writeback) · **auditor** (audit log) · **admin** (all).
+
+Dashboard POST forms are CSRF-protected. Per-action audit events are written to the local SQLite audit ledger. The JSON API remains unchanged (no auth/CSRF on API routes in this phase).
+
+Production requires a real identity provider, RBAC policy administration, secure secret management (`ACTIONRAIL_SESSION_SECRET`), and audit-grade storage — not these demo passwords.
 
 ## Demo narrative
 
@@ -251,7 +271,7 @@ upload invoice → review fields → create transaction → approve → execute 
 
 1. **Reset**: `python scripts/reset_demo_db.py`
 2. **Start**: `uvicorn app.main:app --reload`
-3. **Open** the dashboard: <http://127.0.0.1:8000/dashboard>
+3. **Open** the dashboard: <http://127.0.0.1:8000/dashboard> — sign in as `controller@example.local` / `controller123` if prompted.
 4. Click **Approval Required Invoice** → review the detail page (checks, evidence, decision, risk).
 5. Click **Approve** → status becomes `approved`.
 6. Click **Execute** → status becomes `executed`.
