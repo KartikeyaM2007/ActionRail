@@ -6,6 +6,32 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-15 — Demo Screenshot Capture
+
+### Added
+- `docs/demo_captures/` — 16 captured PNG screenshots covering the full demo workflow (health check, login, dashboard, transaction detail, approved state, executed state, signed receipt, accounting writeback, blocked duplicate, needs evidence, evidence pack, policy replay, risk monitor, audit log, admin dashboard, agent integration docs).
+- `scripts/capture_demo_screenshots.py` — automated Selenium + Edge headless screenshot capture script.
+
+### Changed
+- `WorkFlow.md` — added screenshot status table at top and embedded actual screenshot image links throughout all 15+ phases.
+- `README.md` — updated screenshots section and added live demo workflow pointer.
+- `docs/screenshots/README.md` — added captured live demo screenshots section.
+
+### Tests
+- Full pytest suite run. No code changes — documentation and screenshots only.
+
+---
+
+## 2026-06-14 — Live Demo Workflow Documentation
+
+### Added
+- `WorkFlow.md` — comprehensive step-by-step live demo walkthrough with verified CLI outputs, screenshot checklist, optional recording instructions, and talking points.
+
+### Tests
+- Full pytest suite unchanged (256 passed). No code changes — documentation only.
+
+---
+
 ## 2026-06-14 — Agent Integration Examples (Phase 6E)
 
 ### Added

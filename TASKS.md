@@ -2,7 +2,16 @@
 
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
-- **Phase 6E — Agent integration examples (done, this commit)**:
+- **Demo Screenshot Capture (done, this commit)**:
+  - Captured 16 of 17 demo screenshots using automated Selenium + Edge headless.
+  - Created `scripts/capture_demo_screenshots.py` for automated capture.
+  - Updated `WorkFlow.md` with screenshot status table and embedded image links.
+  - Updated `README.md` with live demo workflow pointer.
+  - Updated `docs/screenshots/README.md` with demo captures reference.
+  - Only `01-preflight-response.png` (terminal output) remains pending manual capture.
+  - **Tests: passing (no code changes).**
+
+- **Phase 6E — Agent integration examples (done)**:
   - Created `docs/AGENT_INTEGRATION.md` explaining agent-first model, decisions, and integration patterns.
   - Created `examples/agent_client.py` showing standard library HTTP client with decision handling.
   - Created `examples/langgraph_actionrail_tool.py` demonstrating LangGraph framework integration.

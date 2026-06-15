@@ -75,3 +75,13 @@ Run this exact sequence; each step maps to one screenshot.
 * Use a dedicated demo profile so personal bookmarks and extensions don't appear.
 * Capture the full page (a page-height screenshot, not just the viewport) so the table and receipt JSON aren't cut off.
 * Keep transaction IDs visible — they're part of the proof that this is real ActionRail data, not a mockup.
+
+## Captured live demo screenshots
+
+Captured images for the full live workflow are stored in:
+
+`docs/demo_captures/`
+
+See `WorkFlow.md` for the step-by-step workflow.
+
+16 of 17 screenshots were captured using automated Selenium + Edge headless on 2026-06-15. Only `01-preflight-response.png` (terminal/API output) requires manual capture.

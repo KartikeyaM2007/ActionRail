@@ -379,7 +379,11 @@ Every execution response includes: `Demo execution only. No real bank or ledger 
 
 ## Screenshots
 
-Screenshots not yet committed. Capture flow and naming convention: [`docs/screenshots/README.md`](docs/screenshots/README.md).
+16 of 17 demo screenshots have been captured and stored in [`docs/demo_captures/`](docs/demo_captures/). Capture flow and naming convention: [`docs/screenshots/README.md`](docs/screenshots/README.md).
+
+## Live demo workflow and screenshots
+
+See [`WorkFlow.md`](WorkFlow.md) for the full live demo walkthrough and [`docs/demo_captures/`](docs/demo_captures/) for captured screenshots.
 
 ## Further reading
 
