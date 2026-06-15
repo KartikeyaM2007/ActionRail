@@ -16,72 +16,51 @@
   <main class="neo-shell">
     <header class="neo-header">
       <div>
-        <a class="neo-tag" href="/dashboard">← Back to dashboard</a>
-        <h1 class="neo-title" style="margin-top: 16px">Risk Monitor</h1>
-        <p class="neo-subtitle">Operational metrics and security event tracking</p>
+        <h1 class="neo-title">Risk Monitor</h1>
+        <p class="neo-subtitle">Operational risk metrics and high-risk events</p>
       </div>
-      {% include "partials/control_nav.html" %}
+      <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:center">
+        {% include "partials/control_nav.html" %}
+      </nav>
     </header>
 
-    <section class="neo-grid neo-grid--stats" aria-label="Operational Metrics">
-      <div class="neo-stat">
-        <div class="neo-stat__label">Total Transactions</div>
-        <div class="neo-stat__value">{{ metrics.total_transactions }}</div>
+    <section class="neo-section">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title">Operational Metrics</h2>
       </div>
-      <div class="neo-stat neo-stat--accent">
-        <div class="neo-stat__label" style="color: #fff">Blocked Transactions</div>
-        <div class="neo-stat__value" style="color: #fff">{{ metrics.blocked_transactions }}</div>
-      </div>
-      <div class="neo-stat neo-stat--muted">
-        <div class="neo-stat__label">Missing Evidence</div>
-        <div class="neo-stat__value">{{ metrics.needs_evidence }}</div>
-      </div>
-      <div class="neo-stat neo-stat--secondary">
-        <div class="neo-stat__label">Recent Security Events</div>
-        <div class="neo-stat__value">{{ metrics.recent_security_events }}</div>
+      <div class="neo-detail-grid">
+        {% for label, value in metrics.items() %}
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">{{ label }}</div>
+          <div class="neo-detail-card__value" style="font-size: 1.5rem;">{{ value }}</div>
+        </div>
+        {% endfor %}
       </div>
     </section>
 
-    <section class="neo-section" aria-labelledby="events-heading">
+    <section class="neo-section">
       <div class="neo-section__head">
-        <h2 class="neo-section__title" id="events-heading">Recent Security Events</h2>
+        <h2 class="neo-section__title">Recent Security Events</h2>
       </div>
-      {% if risk_events %}
-      <div class="neo-table-wrap" role="region" aria-label="Security Events" tabindex="0">
-        <table class="neo-table neo-table--compact">
-          <thead>
-            <tr>
-              <th scope="col">Time</th>
-              <th scope="col">Actor</th>
-              <th scope="col">Action</th>
-              <th scope="col">Target</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ev in risk_events %}
-            <tr>
-              <td><code>{{ ev.created_at[:19] }}</code></td>
-              <td>{{ ev.actor_email or 'system' }}</td>
-              <td><strong>{{ ev.action }}</strong></td>
-              <td><code>{{ ev.target_type }}:{{ ev.target_id or 'none' }}</code></td>
-            </tr>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          {% if recent_high_risk %}
+          <ul class="neo-note-list">
+            {% for ev in recent_high_risk %}
+            <li><code>{{ ev.created_at[:19] }}</code> • {{ ev.actor_email or 'system' }} • <strong style="color: #FF6B6B;">{{ ev.action }}</strong></li>
             {% endfor %}
-          </tbody>
-        </table>
+          </ul>
+          {% else %}
+          <div class="neo-empty">No recent high-risk events.</div>
+          {% endif %}
+        </div>
       </div>
-      {% else %}
-      <div class="neo-empty" role="status">
-        <span class="neo-empty__label">No Events</span>
-        <h3 class="neo-empty__title">No recent security events detected.</h3>
-      </div>
-      {% endif %}
     </section>
 
     <footer class="neo-footer">
-      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span>ActionRail Finance · MVP</span>
       <span class="neo-footer__safety">Demo execution only · No real money moves</span>
     </footer>
-
   </main>
 </body>
 </html>

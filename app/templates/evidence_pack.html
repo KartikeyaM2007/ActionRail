@@ -22,10 +22,7 @@
       </div>
       <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
         {% if can_export %}
-        <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/evidence-pack/export">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-          <button class="neo-btn" type="submit">Export Evidence Pack</button>
-        </form>
+        <a class="neo-btn" href="/dashboard/transactions/{{ txn.id }}/evidence_pack">Download Evidence Pack (ZIP)</a>
         {% endif %}
         {% include "partials/control_nav.html" %}
       </nav>

@@ -22,6 +22,8 @@
 - `POST /dashboard/transactions/{transaction_id}/approve` (purpose: approve, role: approve_transaction, CSRF: yes, JSON: no)
 - `POST /dashboard/transactions/{transaction_id}/reject` (purpose: reject, role: reject_transaction, CSRF: yes, JSON: no)
 - `POST /dashboard/transactions/{transaction_id}/execute` (purpose: execute, role: execute_transaction, CSRF: yes, JSON: no)
+- `GET /dashboard/transactions/{transaction_id}/evidence_pack` (purpose: download evidence zip, role: view_evidence_pack, CSRF: no, JSON: no)
+- `GET /dashboard/transactions/{transaction_id}/replay` (purpose: view policy replay, role: view_transaction_replay, CSRF: no, JSON: no)
 
 ## Receipt routes
 - `GET /dashboard/transactions/{transaction_id}/receipt` (purpose: view signed receipt, role: view_receipt, CSRF: no, JSON: no)
@@ -30,8 +32,9 @@
 - `GET /dashboard/transactions/{transaction_id}/writeback/accounting-sandbox` (purpose: view writeback form, role: accounting_writeback, CSRF: no, JSON: no)
 - `POST /dashboard/transactions/{transaction_id}/writeback/accounting-sandbox` (purpose: process writeback, role: accounting_writeback, CSRF: yes, JSON: no)
 
-## Audit routes
+## Audit & Risk routes
 - `GET /dashboard/audit` (purpose: view ledger, role: view_audit_log, CSRF: no, JSON: no)
+- `GET /dashboard/risk` (purpose: view risk metrics, role: view_risk_monitor, CSRF: no, JSON: no)
 
 ## Admin routes
 - `GET /dashboard/admin` (purpose: admin index, role: manage_admin, CSRF: no, JSON: no)

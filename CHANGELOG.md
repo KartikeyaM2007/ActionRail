@@ -6,6 +6,23 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-15 — Live Deployment Readiness
+
+### Added
+- `render.yaml` — Infrastructure-as-code configuration for Render.com persistent disk deployment.
+- `Dockerfile` & `.dockerignore` — standard container configuration for AWS/DigitalOcean/Fly.io.
+- `.env.example` — environment variables template.
+- `docs/DEPLOYMENT.md` — detailed instructions for hosting safely without losing SQLite data.
+
+### Changed
+- `app/store.py` — `DB_PATH` respects `ACTIONRAIL_DB_PATH` environment variable.
+- `app/main.py` — `_UPLOAD_DIR` and other storage paths respect `ACTIONRAIL_DATA_DIR` environment variable.
+
+### Tests
+- Full pytest suite run passed to ensure environment overrides did not break local logic.
+
+---
+
 ## 2026-06-15 — Demo Screenshot Capture
 
 ### Added

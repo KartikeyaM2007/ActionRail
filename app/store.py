@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "actionrail.db"
+import os
+DB_PATH = Path(os.environ.get("ACTIONRAIL_DB_PATH", Path(__file__).resolve().parent.parent / "actionrail.db"))
 
 
 def utc_now() -> datetime:

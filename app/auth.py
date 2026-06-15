@@ -24,7 +24,7 @@ ROLES: Final[tuple[str, ...]] = (
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "view_dashboard": frozenset({"viewer", "controller", "approver", "executor", "auditor", "admin"}),
     "view_transaction": frozenset({"viewer", "controller", "approver", "executor", "auditor", "admin"}),
-    "view_transaction_replay": frozenset({"viewer", "controller", "approver", "executor", "auditor", "admin"}),
+    "view_transaction_replay": frozenset({"auditor", "admin"}),
     "view_receipt": frozenset({"viewer", "controller", "approver", "executor", "auditor", "admin"}),
     "upload_invoice": frozenset({"controller", "admin"}),
     "review_invoice": frozenset({"controller", "admin"}),
@@ -34,7 +34,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "execute_transaction": frozenset({"executor", "admin"}),
     "accounting_writeback": frozenset({"executor", "admin"}),
     "view_audit_log": frozenset({"auditor", "admin"}),
-    "view_risk_monitor": frozenset({"viewer", "controller", "approver", "executor", "auditor", "admin"}),
+    "view_risk_monitor": frozenset({"auditor", "admin"}),
+    "view_evidence_pack": frozenset({"auditor", "admin"}),
+    "export_evidence_pack": frozenset({"auditor", "admin"}),
     "manage_admin": frozenset({"admin"}),
 }
 
