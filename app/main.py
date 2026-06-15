@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -41,11 +41,12 @@ if not _SESSION_SECRET:
 
 _APP_DIR = Path(__file__).resolve().parent
 _REPO_DIR = _APP_DIR.parent
-_UPLOAD_DIR = _REPO_DIR / "data" / "uploads"
+_DATA_DIR = Path(os.environ.get("ACTIONRAIL_DATA_DIR", _REPO_DIR / "data"))
+_UPLOAD_DIR = _DATA_DIR / "uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-_CONTRACT_EVIDENCE_DIR = _REPO_DIR / "data" / "contract_evidence"
+_CONTRACT_EVIDENCE_DIR = _DATA_DIR / "contract_evidence"
 _CONTRACT_EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
-_AUDIT_EXPORTS_DIR = _REPO_DIR / "data" / "audit_exports"
+_AUDIT_EXPORTS_DIR = _DATA_DIR / "audit_exports"
 _AUDIT_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 _ACCOUNTING_PROVIDER = "local_accounting_sandbox"
 app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET, max_age=60 * 60 * 24 * 7)
@@ -1393,16 +1394,11 @@ def dashboard_evidence_pack_get(request: Request, transaction_id: str):
         ),
     )
 
-@app.post("/dashboard/transactions/{transaction_id}/evidence-pack/export")
-def dashboard_evidence_pack_export(
-    request: Request, transaction_id: str, csrf_token: str = Form(default="")
-):
+@app.get("/dashboard/transactions/{transaction_id}/evidence_pack")
+def dashboard_evidence_pack_download(request: Request, transaction_id: str):
     user, blocked = _dash_guard(request, "export_evidence_pack", "evidence_pack", transaction_id)
     if blocked:
         return blocked
-    csrf_resp = _dash_csrf(request, user, csrf_token, "evidence_pack", transaction_id)
-    if csrf_resp:
-        return csrf_resp
         
     txn = get_transaction(conn, transaction_id)
     if not txn:
@@ -1410,11 +1406,14 @@ def dashboard_evidence_pack_export(
         
     pack = build_transaction_evidence_pack(conn, transaction_id, user)
     export_id = f"exp_{uuid.uuid4().hex[:12]}"
-    filename = f"{transaction_id}_{export_id}.json"
+    filename = f"{transaction_id}_{export_id}.zip"
     dest = _AUDIT_EXPORTS_DIR / filename
     
-    with open(dest, "w", encoding="utf-8") as f:
-        json.dump(pack, f, indent=2, ensure_ascii=False)
+    from app.evidence_pack import generate_evidence_zip
+    zip_bytes = generate_evidence_zip(pack)
+    
+    with open(dest, "wb") as f:
+        f.write(zip_bytes)
         
     local_ref = f"local://audit_exports/{filename}"
     
@@ -1432,7 +1431,12 @@ def dashboard_evidence_pack_export(
         conn, request, action="evidence_pack_exported", target_type="evidence_pack",
         target_id=transaction_id, event={"export_id": export_id, "local_ref": local_ref}, actor=user,
     )
-    return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}/evidence-pack", status_code=303)
+    
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="evidence_pack_{transaction_id}.zip"'}
+    )
 
 @app.get("/dashboard/transactions/{transaction_id}/replay", response_class=HTMLResponse)
 def dashboard_replay_get(request: Request, transaction_id: str):
@@ -1456,6 +1460,7 @@ def dashboard_replay_get(request: Request, transaction_id: str):
         conn, request, action="transaction_replayed", target_type="transaction",
         target_id=transaction_id, event={"differences": replay["differences"]}, actor=user,
     )
+    
     return templates.TemplateResponse(
         request,
         "transaction_replay.html",
@@ -1463,40 +1468,82 @@ def dashboard_replay_get(request: Request, transaction_id: str):
     )
 
 @app.get("/dashboard/risk", response_class=HTMLResponse)
-def dashboard_risk_monitor(request: Request):
-    user, blocked = _dash_guard(request, "view_risk_monitor", "risk_monitor")
+def dashboard_risk(request: Request):
+    user, blocked = _dash_guard(request, "view_risk_monitor", "risk_monitor", "global")
     if blocked:
         return blocked
-        
+    
+    # Gather stats
+    from app.store import list_audit_events
+    
     rows = conn.execute("SELECT decision, status, COUNT(*) AS n FROM transactions GROUP BY decision, status").fetchall()
     total_txns = 0
     blocked_txns = 0
-    needs_evidence_txns = 0
-    
+    rejected_txns = 0
+    executed_txns = 0
     for row in rows:
         n = row["n"]
         total_txns += n
         if row["decision"] == "blocked" or row["status"] == "blocked":
             blocked_txns += n
-        if row["decision"] == "needs_more_evidence":
-            needs_evidence_txns += n
+        if row["decision"] == "rejected" or row["status"] == "rejected":
+            rejected_txns += n
+        if row["status"] == "executed":
+            executed_txns += n
             
-    recent_audit_events = list_audit_events(conn, limit=100)
-    risk_events = [ev for ev in recent_audit_events if "denied" in ev["action"] or ev["action"] == "login_failed"]
-
-    metrics = {
-        "total_transactions": total_txns,
-        "blocked_transactions": blocked_txns,
-        "needs_evidence": needs_evidence_txns,
-        "recent_security_events": len(risk_events)
+    wf_rows = conn.execute("SELECT status, COUNT(*) AS n FROM approval_workflows GROUP BY status").fetchall()
+    pending_workflows = 0
+    for row in wf_rows:
+        if row["status"] == "pending":
+            pending_workflows += row["n"]
+    
+    events = list_audit_events(conn, limit=5000)
+    
+    api_auth_fails = sum(1 for e in events if e["action"] == "api_auth_failed")
+    api_scope_denials = sum(1 for e in events if e["action"] == "api_scope_denied")
+    api_rate_limits = sum(1 for e in events if e["action"] == "api_rate_limited")
+    idempotency_conflicts = sum(1 for e in events if e["action"] == "idempotency_conflict")
+    approval_sep_denials = sum(1 for e in events if e["action"] == "approval_separation_denied")
+    approval_wrong_role = sum(1 for e in events if e["action"] == "approval_wrong_role_denied")
+    exec_denied_pending = sum(1 for e in events if e["action"] == "execution_denied_workflow_pending")
+    policy_updates = sum(1 for e in events if e["action"] == "policy_updated")
+    vendor_blocked = sum(1 for e in events if e["action"] == "vendor_blocked")
+    contract_deactivated = sum(1 for e in events if e["action"] == "contract_deactivated")
+    evidence_exports = sum(1 for e in events if e["action"] == "evidence_pack_exported")
+    
+    high_risk_actions = {
+        "api_auth_failed", "api_scope_denied", "api_rate_limited",
+        "idempotency_conflict", "approval_separation_denied",
+        "approval_wrong_role_denied", "execution_denied_workflow_pending",
+        "policy_updated", "vendor_blocked", "contract_deactivated",
+        "evidence_pack_exported", "login_failed"
     }
-
+    recent_high_risk = [e for e in events if e["action"] in high_risk_actions][:20]
+    
+    metrics = {
+        "Total transactions": total_txns,
+        "Blocked transactions": blocked_txns,
+        "Rejected transactions": rejected_txns,
+        "Executed transactions": executed_txns,
+        "Pending approval workflows": pending_workflows,
+        "Approval separation denials": approval_sep_denials,
+        "Wrong-role approval denials": approval_wrong_role,
+        "API auth failures": api_auth_fails,
+        "API scope denials": api_scope_denials,
+        "API rate-limited events": api_rate_limits,
+        "Idempotency conflicts": idempotency_conflicts,
+        "Policy updates": policy_updates,
+        "Vendor blocked events": vendor_blocked,
+        "Contract deactivated events": contract_deactivated,
+        "Evidence exports count": evidence_exports,
+    }
+    
     control.write_audit_event(
-        conn, request, action="risk_monitor_viewed", target_type="risk_monitor",
-        target_id=None, actor=user,
+        conn, request, action="risk_monitor_viewed", target_type="risk_monitor", target_id="global", actor=user
     )
+    
     return templates.TemplateResponse(
         request,
         "risk_monitor.html",
-        _dash_ctx(request, metrics=metrics, risk_events=risk_events[:20]),
+        _dash_ctx(request, metrics=metrics, recent_high_risk=recent_high_risk),
     )

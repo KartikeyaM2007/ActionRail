@@ -1100,6 +1100,9 @@ Tally/Zoho style export CSV
 
 ### Phase 6: Agent-native layer
 
+**Update:** Phase 6A: release hardening is complete, delivering risk monitoring, evidence packs, replay, and secure API boundaries.
+
+
 Add:
 
 ```text

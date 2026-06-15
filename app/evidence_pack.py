@@ -135,3 +135,13 @@ def build_transaction_evidence_pack(conn, transaction_id: str, actor: dict[str, 
 
     pack["evidence_pack_sha256"] = hash_evidence_pack(pack)
     return pack
+
+import io
+import zipfile
+
+def generate_evidence_zip(pack: dict[str, Any]) -> bytes:
+    """Generate a ZIP file containing the evidence pack manifest."""
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(pack, indent=2, ensure_ascii=False))
+    return zip_buffer.getvalue()

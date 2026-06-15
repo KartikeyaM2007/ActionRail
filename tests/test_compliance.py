@@ -76,13 +76,21 @@ def test_evidence_pack_generation(client):
 def test_evidence_pack_export(client):
     tx_id = _create_test_transaction()
     login_as(client, "admin")
-    csrf = csrf_from_session(client, role="admin")
     
-    # Submit export
-    resp = client.post(f"/dashboard/transactions/{tx_id}/evidence-pack/export", data={"csrf_token": csrf})
-    assert resp.status_code == 303
+    # Submit export (now a GET download)
+    resp = client.get(f"/dashboard/transactions/{tx_id}/evidence_pack")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/zip"
     
-    # Re-fetch to check if latest export shows up
+    import zipfile
+    import io
+    import json
+    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+        assert "manifest.json" in zf.namelist()
+        manifest_data = json.loads(zf.read("manifest.json"))
+        assert "api_audit_events" in manifest_data["sections"]
+    
+    # Re-fetch HTML preview to check if latest export shows up
     resp2 = client.get(f"/dashboard/transactions/{tx_id}/evidence-pack")
     assert resp2.status_code == 200
     soup = BeautifulSoup(resp2.text, "html.parser")
@@ -92,9 +100,8 @@ def test_evidence_pack_export(client):
 def test_evidence_pack_export_permission(client):
     tx_id = _create_test_transaction()
     login_as(client, "viewer")
-    csrf = csrf_from_session(client, role="viewer")
     
-    resp = client.post(f"/dashboard/transactions/{tx_id}/evidence-pack/export", data={"csrf_token": csrf})
+    resp = client.get(f"/dashboard/transactions/{tx_id}/evidence_pack")
     # role viewer does not have export_evidence_pack permission
     assert resp.status_code == 403
 
@@ -141,8 +148,8 @@ def test_replay_permission(client):
     login_as(client, "viewer")
     
     resp = client.get(f"/dashboard/transactions/{tx_id}/replay")
-    # viewer has view_transaction_replay
-    assert resp.status_code == 200
+    # viewer NO LONGER has view_transaction_replay
+    assert resp.status_code == 403
 
 # --- Risk Monitor ---
 def test_risk_monitor_get(client):
@@ -158,8 +165,8 @@ def test_risk_monitor_get(client):
 def test_risk_monitor_permission(client):
     login_as(client, "viewer")
     resp = client.get("/dashboard/risk")
-    # viewer has view_risk_monitor
-    assert resp.status_code == 200
+    # viewer NO LONGER has view_risk_monitor
+    assert resp.status_code == 403
 
 def test_risk_monitor_security_event_capture(client):
     # Perform a failed login to generate a security event
