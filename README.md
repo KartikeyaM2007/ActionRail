@@ -2,6 +2,12 @@
 
 > **Transaction runtime for finance AI agent actions.**
 
+# Live Login page : https://actionrail.onrender.com/login
+# Api live page : https://actionrail.onrender.com
+Why two :  this was made for agent not humans , for human there is a dashboard to approve and reject thing |
+ActionRail API doesn't have a blank homepage (the root / URL). It is designed as an API first.
+
+To see the actual user interface you built, just append /login or /dashboard to the end of that URL in your address bar!
 ActionRail sits between AI finance agents and the finance systems they touch. Before an agent approves an invoice, executes a payment, posts a journal entry, or submits a reconciliation, ActionRail runs the checks, enforces policy, gates approval, and generates a signed receipt — without the agent ever mutating a system of record directly.
 
 ---
