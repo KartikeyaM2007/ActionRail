@@ -2436,3 +2436,48 @@ pytest -q
 ## What the user should send to ChatGPT
 
 Copy paste this whole latest ForKnow.md entry.
+
+# Cursor Work Update: Added workflow to README
+
+## Date
+
+2026-06-15, UTC morning session.
+
+## Prompt I worked on
+
+"add the workflow in reade also"
+
+## Files changed
+
+| File | What changed |
+|---|---|
+| README.md | Replaced the short "Live demo workflow" link with the full step-by-step workflow copied directly from WorkFlow.md, starting from Phase 0 onwards, for easier immediate viewing. |
+
+## What I added
+
+- The full live demo walkthrough phases (0 through 15) and talking points are now embedded directly into README.md.
+
+## What I modified
+
+- README.md
+
+## What I did not change
+
+- No backend features, no HTML/CSS, no policy logic.
+
+## Tests run
+
+`ash
+pytest -q
+`
+Tests pass (no code changes).
+
+## Current status
+
+- App status: Fully operational.
+- Dashboard status: Demo ready.
+- Known issues:  1-preflight-response.png pending manual capture.
+
+## What the user should send to ChatGPT
+
+Copy paste this whole latest ForKnow.md entry.
