@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transaction Replay - ActionRail Finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/transactions/{{ txn.id }}">← Back to Transaction</a>
+        <h1 class="neo-title" style="margin-top: 16px">Transaction Replay</h1>
+        <p class="neo-subtitle">Compare current policy simulation against original execution for <code>{{ txn.id }}</code></p>
+      </div>
+      <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
+        {% include "partials/control_nav.html" %}
+      </nav>
+    </header>
+
+    <section class="neo-section" aria-labelledby="replay-result-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="replay-result-heading">Replay Result</h2>
+      </div>
+      {% if replay.policy_changed %}
+      <div class="neo-alert neo-alert--error" role="alert">
+        <strong>Policy Changes Detected</strong>
+        <p>The current policy would result in a different outcome than the original execution.</p>
+      </div>
+      {% else %}
+      <div class="neo-alert" role="status" style="border-left-color: #10B981;">
+        <strong>Policy Consistent</strong>
+        <p>The current policy produces the exact same outcome as the original execution.</p>
+      </div>
+      {% endif %}
+
+      <div class="neo-detail-grid" style="margin-top: 24px;">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Original Decision</div>
+          <div class="neo-detail-card__value">
+            <span class="neo-badge neo-badge--decision-{{ replay.original_decision }}">
+              {{ replay.original_decision|replace('_', ' ') }}
+            </span>
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Replay Decision</div>
+          <div class="neo-detail-card__value">
+            <span class="neo-badge neo-badge--decision-{{ replay.replay_decision }}">
+              {{ replay.replay_decision|replace('_', ' ') }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% if replay.differences %}
+    <section class="neo-section" aria-labelledby="differences-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="differences-heading">Differences</h2>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <ul class="neo-note-list">
+            {% for diff in replay.differences %}
+            <li>{{ diff }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP {{ version }}</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves</span>
+    </footer>
+
+  </main>
+</body>
+</html>

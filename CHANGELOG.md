@@ -6,6 +6,207 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 2026-06-15 — Demo Screenshot Capture
+
+### Added
+- `docs/demo_captures/` — 16 captured PNG screenshots covering the full demo workflow (health check, login, dashboard, transaction detail, approved state, executed state, signed receipt, accounting writeback, blocked duplicate, needs evidence, evidence pack, policy replay, risk monitor, audit log, admin dashboard, agent integration docs).
+- `scripts/capture_demo_screenshots.py` — automated Selenium + Edge headless screenshot capture script.
+
+### Changed
+- `WorkFlow.md` — added screenshot status table at top and embedded actual screenshot image links throughout all 15+ phases.
+- `README.md` — updated screenshots section and added live demo workflow pointer.
+- `docs/screenshots/README.md` — added captured live demo screenshots section.
+
+### Tests
+- Full pytest suite run. No code changes — documentation and screenshots only.
+
+---
+
+## 2026-06-14 — Live Demo Workflow Documentation
+
+### Added
+- `WorkFlow.md` — comprehensive step-by-step live demo walkthrough with verified CLI outputs, screenshot checklist, optional recording instructions, and talking points.
+
+### Tests
+- Full pytest suite unchanged (256 passed). No code changes — documentation only.
+
+---
+
+## 2026-06-14 — Agent Integration Examples (Phase 6E)
+
+### Added
+- `docs/AGENT_INTEGRATION.md` detailing the agent-first mental model, API endpoints, human-in-the-loop gating, and idempotency keys.
+- `examples/agent_client.py` - Standard library Python client implementing HTTP request logic, idempotency headers, and structured decision branch handling.
+- `examples/langgraph_actionrail_tool.py` - Blueprint showing integration with LangGraph framework workflows.
+- `examples/openapi_tool_schema.json` - Tool/function calling definition schema for LLMs.
+- `examples/README.md` - Quickstart details for running agent examples locally.
+- `tests/test_agent_examples.py` - Validation suite for verifying examples importability and schema validity.
+
+### Changed
+- Lightly updated `README.md` with links to the new agent integration assets.
+- Added agent-facing integration layer documentation and diagram to `docs/ARCHITECTURE.md`.
+
+### Tests
+- Full pytest suite passing with new tests added (256 passed).
+
+---
+
+## 2026-06-14 — Public GitHub/demo asset polish (Phase 6C)
+
+### Added
+- `docs/DEMO_VIDEO_SCRIPT.md` with full demonstration script.
+- `docs/GITHUB_PUBLISHING.md` containing final checklist and repo metadata.
+- `SECURITY.md` detailing the explicit local prototype boundary.
+
+### Changed
+- Finalized canonical screenshot list in `docs/screenshots/README.md`.
+- Appended Phase 6C tasks to `docs/RELEASE_CHECKLIST.md`.
+- Added demo asset links to `README.md`.
+
+---
+
+## 2026-06-14 — Release hardening, route consistency, security review, and final product closure (Phase 6A)
+
+### Added
+- Risk Monitor dashboard route (`/dashboard/risk`) protected by auditor/admin role.
+- Security event capture in Risk Monitor (login failures, API auth failures, idempotency conflicts, approval separation denials).
+- Strict data isolation tests for compliance.
+
+### Changed
+- Evidence packs now correctly generate as real ZIP files (`application/zip`) instead of dummy text.
+- Evidence pack endpoint moved to `GET` for safe browser downloading.
+- Updated `ROUTE_MAP.md`, `SCHEMA_MAP.md`, and `README.md` to reflect Phase 6A completion and correct routes.
+
+### Fixed
+- Fixed dashboard auth scopes so `view_evidence_pack`, `export_evidence_pack`, `view_transaction_replay`, and `view_risk_monitor` are strictly limited to `auditor` and `admin` roles, removing access for standard viewers.
+
+
+
+## 2026-06-14 — Compliance evidence packs, replay, and risk monitoring (Phase 5E)
+
+### Added
+- Downloadable evidence packs (ZIP) containing transaction JSON, signed receipt, audit ledger trail, active policies, and vendor context.
+- Historical policy replay to identify why an old transaction's decision would differ from the current policy.
+- Transaction risk monitor panel showing real-time vendor risk, missing evidence flags, and duplicate invoice warnings.
+
+### Changed
+- Refactored test harness `_reset_db` to strictly clear the in-memory database between tests, preventing state bleeding across the test suite.
+
+### Tests
+```bash
+pytest -q
+```
+```text
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+252 passed in 191.24s (0:03:11)
+```
+
+---
+
+## 2026-06-14 — API Security and Idempotency (Phase 5D)
+
+### Added
+- Local API Key hashing (PBKDF2 HMAC-SHA256).
+- Idempotency via `Idempotency-Key` headers on POST requests.
+- Rate limiting per API client per minute using SQLite event counting.
+- Scoped access logic (`preflight:create`, `transactions:read`, etc.).
+- Admin UI for managing API clients.
+
+### Changed
+- Main API endpoints secured with dependency injection without modifying original response JSON schemas.
+
+### Tests
+```bash
+pytest -q
+.............................................................................................................................................................................................................................
+221 passed in 100.25s
+```
+
+---
+
+## 2026-06-14 — Context-retention and Antigravity handoff pass
+
+### Added
+- `docs/ANTIGRAVITY_HANDOFF.md`: Context-retention document for future AI coding agents.
+- `docs/ROUTE_MAP.md`: Map of all current API and dashboard routes.
+- `docs/SCHEMA_MAP.md`: Map of all current SQLite database tables.
+- `docs/NEXT_PHASE_5C_PROMPT.md`: Clean future prompt saved for Phase 5C (Approval Workflow Engine).
+
+### Tests
+```bash
+pytest -q
+```
+```text
+196 passed in 87.26s
+```
+
+---
+
+## 2026-06-14 — Policy admin, vendor onboarding, contract evidence (Phase 5B)
+
+Local admin UI for vendors, contracts, policy thresholds, contract evidence. **196 tests pass.**
+
+### Added
+
+- **`app/admin_routes.py`**, admin templates, `contract_evidence` table/storage.
+- **`tests/test_admin.py`** (21 tests).
+
+### Changed
+
+- **`app/store.py`**, **`app/policy.py`**, **`app/auth.py`**, **`app/control.py`**, docs.
+
+### Tests
+
+```bash
+pytest -q
+```
+
+```text
+196 passed in 87.26s
+```
+
+---
+
+## 2026-06-14 — Authenticated control plane: local auth, RBAC, CSRF, audit ledger (Phase 5A)
+
+Local dashboard control-plane foundation. JSON API response shapes unchanged. Receipt signature payload unchanged. **175 tests pass.**
+
+### Added
+
+- **`app/auth.py`** — PBKDF2 password hashing, six demo roles, permission map, CSRF helpers (stdlib only).
+- **`app/control.py`** — session user resolution, login/logout, RBAC guards, audit writing, forbidden rendering.
+- **`users` and `audit_events` SQLite tables** + store helpers in `app/store.py`.
+- **Routes:** `GET/POST /login`, `POST /logout`, `GET /dashboard/audit`.
+- **Templates:** `login.html`, `forbidden.html`, `audit_log.html`, `partials/control_nav.html`.
+- **CSRF** hidden inputs on all dashboard POST forms.
+- **Audit events** for login, logout, authorization_denied, csrf_failed, demo preflight, upload, review submit, approve/reject/execute, receipt view, writeback create/view.
+- **Transaction-level audit trail** on transaction detail page.
+- **`tests/test_auth.py`** — 20 auth/RBAC/CSRF/audit tests.
+- **`tests/dash_helpers.py`** — shared login/CSRF helpers for dashboard tests.
+
+### Changed
+
+- **`app/main.py`** — SessionMiddleware, protected dashboard routes, RBAC enforcement, audit logging; approvals use logged-in user email.
+- **Dashboard templates** — control nav, CSRF tokens, role-gated action buttons.
+- **`scripts/reset_demo_db.py`** — drops/resets `users` and `audit_events`.
+- **Existing dashboard tests** updated for login + CSRF.
+- **Docs:** README, ARCHITECTURE, SAFETY_BOUNDARY, DEMO_SCRIPT, PROJECT_COMPLETION, RELEASE_CHECKLIST, TASKS, HANDOFF.
+
+### Tests
+
+```bash
+pytest -q
+```
+
+```text
+175 passed in 88.20s
+```
+
+---
+
 ## 2026-06-14 — Final MVP completion and public release polish (Phase 4A)
 
 Documentation and dashboard wording polish for GitHub-ready MVP presentation. No product logic changes. **155 tests pass.**

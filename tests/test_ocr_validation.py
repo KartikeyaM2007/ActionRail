@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_post
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -209,8 +210,10 @@ startxref
 
 
 def test_pdf_upload_unaffected(client: TestClient):
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("inv.pdf", _MINIMAL_PDF, "application/pdf")},
         data={"invoice_id": "INV-TEST", "vendor": "Acme Services", "amount": "10000"},
     )
@@ -233,8 +236,10 @@ def test_image_upload_no_ocr_passes(client: TestClient, monkeypatch):
             "notes": ["pytesseract not installed"],
         },
     )
-    r = client.post(
+    r = dash_post(
+        client,
         "/dashboard/invoices/upload",
+        role="controller",
         files={"file": ("inv.png", _MINIMAL_PNG, "image/png")},
         data={"invoice_id": "INV-TEST", "vendor": "Acme Services", "amount": "10000"},
     )

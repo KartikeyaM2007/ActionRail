@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Policy settings — Admin</title>
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/admin">← Admin</a>
+        <h1 class="neo-title" style="margin-top: 16px">Policy settings</h1>
+        <p class="neo-subtitle">Changes affect future preflights only · existing transactions unchanged</p>
+      </div>
+      {% include "partials/control_nav.html" %}
+    </header>
+
+    {% if success %}<div class="neo-alert" role="status">Policy updated.</div>{% endif %}
+    {% if error %}<div class="neo-alert neo-alert--error" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="neo-section">
+      <form method="post" action="/dashboard/admin/policies">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        
+        <div class="neo-alert" style="margin-bottom: 24px;">
+          <strong>Approval Workflow Engine:</strong> High risk invoices or invoices exceeding the contract evidence threshold require a 2-step approval (Approver + Admin). 
+          Invoices above the approval threshold require a 1-step approval (Approver). 
+          The creator of a transaction can never approve their own transaction (maker-checker separation).
+        </div>
+
+        <div class="neo-detail-grid">
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="approval_threshold">Approval threshold</label>
+            <input class="neo-input" id="approval_threshold" name="approval_threshold" type="number" step="0.01"
+                   value="{{ policy.approval_threshold }}" required />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="require_contract_above">Contract evidence threshold</label>
+            <input class="neo-input" id="require_contract_above" name="require_contract_above" type="number" step="0.01"
+                   value="{{ policy.require_contract_above }}" required />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="duplicate_window_days">Duplicate invoice window (days)</label>
+            <input class="neo-input" id="duplicate_window_days" name="duplicate_window_days" type="number"
+                   value="{{ policy.duplicate_window_days }}" required />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="lock_ttl_minutes">Intent lock TTL (minutes)</label>
+            <input class="neo-input" id="lock_ttl_minutes" name="lock_ttl_minutes" type="number"
+                   value="{{ policy.lock_ttl_minutes }}" required />
+          </div>
+        </div>
+        <button class="neo-btn" type="submit" style="margin-top:16px">Save policy</button>
+      </form>
+    </section>
+
+    <section class="neo-section">
+      <h2 class="neo-section__title">Full policy JSON</h2>
+      <pre class="neo-pre neo-pre--small">{{ policy | tojson(indent=2) }}</pre>
+    </section>
+  </main>
+</body>
+</html>

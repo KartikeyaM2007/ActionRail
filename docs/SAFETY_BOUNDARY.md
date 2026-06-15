@@ -27,7 +27,8 @@ This MVP explicitly does **not**:
 - Post to QuickBooks, Xero, Zoho, Tally, or any live ERP/ledger.
 - Connect to Gmail, Outlook, or external email ingestion.
 - Call Stripe, Razorpay, or payment processors.
-- Provide production authentication, RBAC, or multi-tenant isolation.
+- Provide production authentication on the **JSON API**, RBAC policy admin, or multi-tenant isolation.
+- Replace local demo dashboard auth with a real identity provider (OAuth/OIDC, SSO, etc.).
 - Guarantee OCR accuracy — extraction assists review; humans confirm before transaction creation.
 - Replace your accounting system, AP workflow, or compliance program.
 
@@ -102,6 +103,39 @@ In this codebase, no route or adapter:
 - Writes to external ledgers or databases.
 
 If you add real integrations, that requires a new phase, new tests, new decision entries, and the production requirements below.
+
+---
+
+## Local demo dashboard auth (Phase 5A)
+
+The dashboard requires sign-in with seeded demo users (`users` table). This is **not production auth**:
+
+- Stdlib PBKDF2 password hashing only (`app/auth.py`).
+- Session cookie via `ACTIONRAIL_SESSION_SECRET` (dev fallback in code).
+- RBAC on dashboard routes; JSON API unchanged.
+- CSRF tokens on all dashboard POST forms.
+- Audit ledger in SQLite (`audit_events`).
+
+Local JSON API routes are now protected by `X-ActionRail-API-Key` using local hashes (Phase 5D). Production still requires real identity, secret management, API gateways, and immutable audit storage.
+
+---
+
+## Admin-managed finance data (Phase 5B)
+
+**Phase 5B admin control plane (local demo):**
+
+- `/dashboard/admin` — vendor onboarding, contract registration, policy thresholds (admin only).
+- Vendor status: `verified`, `pending_review`, `blocked` — only verified passes `vendor_verified`.
+- Contract status: `active`, `inactive`, `expired` — inactive/expired fail `contract_match`.
+- Contract evidence stored under `data/contract_evidence/` (gitignored, not served publicly).
+- Policy edits affect future preflights only; existing transactions unchanged.
+
+**Phase 5D agent API security (local demo):**
+
+- `X-ActionRail-API-Key` headers matching `api_clients` table using PBKDF2 HMAC-SHA256 hashes.
+- Idempotency handling via `Idempotency-Key` headers on POST requests.
+- Rate limiting per API client using SQLite event counting.
+- This is a local demo security layer. Production still requires a secret manager and API gateway. 
 
 ---
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -10,12 +11,22 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
+from app import control
+from app.auth import role_has_permission, verify_password
 from app.models import ApprovalDecision, PreflightRequest, Receipt
 from app.policy import get_transaction, receipt_id, run_preflight, sign_receipt
+from app.approval_workflow import plan_approval_workflow, enforce_maker_checker
+from app.api_security import require_api_scope
+from fastapi import Depends
 from app.store import (
-    connect, dumps, get_uploaded_document, get_accounting_writeback, init_db, loads,
-    save_uploaded_document, save_accounting_writeback, seed_demo, utc_now,
+    connect, dumps, get_accounting_writeback, get_uploaded_document, get_user_by_email,
+    init_db, list_audit_events, list_audit_events_for_transaction, loads, save_accounting_writeback,
+    save_uploaded_document, seed_demo, utc_now,
+    create_approval_workflow, create_approval_step, get_approval_workflow_for_transaction,
+    list_approval_steps_for_transaction, get_current_pending_approval_step,
+    record_approval_step_decision, mark_workflow_approved_if_complete, mark_workflow_rejected
 )
 
 app = FastAPI(
@@ -24,17 +35,54 @@ app = FastAPI(
     version="0.1.0",
 )
 
+_SESSION_SECRET = os.environ.get("ACTIONRAIL_SESSION_SECRET")
+if not _SESSION_SECRET:
+    _SESSION_SECRET = "dev-only-actionrail-session-secret-change-me"
+
 _APP_DIR = Path(__file__).resolve().parent
 _REPO_DIR = _APP_DIR.parent
 _UPLOAD_DIR = _REPO_DIR / "data" / "uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+_CONTRACT_EVIDENCE_DIR = _REPO_DIR / "data" / "contract_evidence"
+_CONTRACT_EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+_AUDIT_EXPORTS_DIR = _REPO_DIR / "data" / "audit_exports"
+_AUDIT_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 _ACCOUNTING_PROVIDER = "local_accounting_sandbox"
+app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET, max_age=60 * 60 * 24 * 7)
 app.mount("/static", StaticFiles(directory=_APP_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=_APP_DIR / "templates")
+control.set_templates(templates)
 
 conn = connect()
 init_db(conn)
 seed_demo(conn)
+
+
+def _dash_ctx(request: Request, **extra: Any) -> dict[str, Any]:
+    return control.page_context(request, conn, version=app.version, **extra)
+
+
+def _dash_guard(request: Request, permission: str, target_type: str, target_id: str | None = None):
+    user, redirect = control.require_login(request, conn)
+    if redirect:
+        return None, redirect
+    denied = control.require_permission(
+        request, conn, user=user, permission=permission,
+        target_type=target_type, target_id=target_id, version=app.version,
+    )
+    if denied:
+        return None, denied
+    return user, None
+
+
+def _dash_csrf(
+    request: Request, user: dict[str, Any], csrf_token: str | None,
+    target_type: str, target_id: str | None,
+):
+    return control.require_csrf(
+        request, conn, user=user, csrf_token=csrf_token,
+        target_type=target_type, target_id=target_id, version=app.version,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -64,12 +112,50 @@ def manifest():
 
 
 @app.post("/actions/preflight")
-def preflight(req: PreflightRequest):
+def preflight(req: PreflightRequest, request: Request, api_client: dict | None = Depends(require_api_scope("preflight:create"))):
+    idempotency_key = request.headers.get("Idempotency-Key")
+    if idempotency_key:
+        from app.store import get_idempotency_record, save_idempotency_record, hash_request_body, utc_now
+        from datetime import timedelta
+        import json
+        
+        req_hash = hash_request_body(req.model_dump_json().encode())
+        record = get_idempotency_record(conn, "preflight", idempotency_key)
+        
+        if record:
+            if record["request_hash"] == req_hash:
+                control.write_audit_event(
+                    conn, request, action="idempotency_replayed", target_type="idempotency_key",
+                    target_id=idempotency_key, event={"scope": "preflight"}
+                )
+                return json.loads(record["response_json"])
+            else:
+                control.write_audit_event(
+                    conn, request, action="idempotency_conflict", target_type="idempotency_key",
+                    target_id=idempotency_key, event={"scope": "preflight"}
+                )
+                raise HTTPException(status_code=409, detail="idempotency_conflict")
+
+        resp = run_preflight(conn, req)
+        
+        expires_at = (utc_now() + timedelta(days=1)).isoformat()
+        import uuid
+        record_id = "idem_" + str(uuid.uuid4()).replace("-", "")
+        save_idempotency_record(
+            conn, record_id, "preflight", idempotency_key, req_hash,
+            resp.model_dump_json(), 200, expires_at
+        )
+        control.write_audit_event(
+            conn, request, action="idempotency_record_created", target_type="idempotency_key",
+            target_id=idempotency_key, event={"scope": "preflight"}
+        )
+        return resp
+
     return run_preflight(conn, req)
 
 
 @app.get("/transactions")
-def list_transactions(limit: int = 25):
+def list_transactions(limit: int = 25, api_client: dict | None = Depends(require_api_scope("transactions:read"))):
     rows = conn.execute(
         "SELECT id, agent_id, user_id, intent, action, decision, risk, status, created_at, updated_at "
         "FROM transactions ORDER BY created_at DESC LIMIT ?",
@@ -79,7 +165,7 @@ def list_transactions(limit: int = 25):
 
 
 @app.get("/transactions/{transaction_id}")
-def read_transaction(transaction_id: str):
+def read_transaction(transaction_id: str, api_client: dict | None = Depends(require_api_scope("transactions:read"))):
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
@@ -91,6 +177,41 @@ def read_transaction(transaction_id: str):
 # Both the JSON API routes and the dashboard routes call these.
 # Returning plain dicts keeps the JSON API response shape byte-identical.
 # ---------------------------------------------------------------------------
+
+def _create_workflow_if_needed(request: Request, transaction_id: str, user: dict[str, Any]):
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        return
+    from app.store import get_policy
+    policy = get_policy(conn)
+    plan = plan_approval_workflow(txn, policy)
+    if plan:
+        create_approval_workflow(
+            conn,
+            workflow_id=plan["workflow_id"],
+            transaction_id=transaction_id,
+            workflow_type=plan["workflow_type"],
+            status="pending",
+            required_approvals=plan["required_approvals"],
+            reason=plan["reason"]
+        )
+        for step in plan["steps"]:
+            create_approval_step(
+                conn,
+                step_id=step["step_id"],
+                workflow_id=plan["workflow_id"],
+                transaction_id=transaction_id,
+                step_order=step["step_order"],
+                required_role=step["required_role"],
+                status="pending"
+            )
+        control.write_audit_event(
+            conn, request, action="approval_workflow_created", target_type="transaction",
+            target_id=transaction_id,
+            event={"workflow_id": plan["workflow_id"], "workflow_type": plan["workflow_type"]},
+            actor=user
+        )
+
 
 def _approve_transaction(transaction_id: str, approver_id: str, note: str | None) -> dict[str, Any]:
     txn = get_transaction(conn, transaction_id)
@@ -207,7 +328,7 @@ def execute_transaction(transaction_id: str):
 
 
 @app.get("/receipts/{transaction_id}")
-def get_receipt(transaction_id: str):
+def get_receipt(transaction_id: str, api_client: dict | None = Depends(require_api_scope("receipts:read"))):
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
@@ -228,8 +349,6 @@ DEMO_EXAMPLES: dict[str, str] = {
     "missing_evidence": "invoice_missing_evidence.json",
 }
 
-DASHBOARD_APPROVER_ID = "dashboard_user"
-
 
 def _load_demo_request(example_name: str) -> PreflightRequest:
     filename = DEMO_EXAMPLES.get(example_name)
@@ -243,6 +362,7 @@ def _load_demo_request(example_name: str) -> PreflightRequest:
 def _row_to_listing(row) -> dict[str, Any]:
     """Project a transactions row plus its invoice JSON into the dashboard list view-model."""
     invoice = loads(row["invoice_json"], {}) or {}
+    wf = get_approval_workflow_for_transaction(conn, row["id"])
     return {
         "id": row["id"],
         "agent_id": row["agent_id"],
@@ -255,6 +375,7 @@ def _row_to_listing(row) -> dict[str, Any]:
         "risk": row["risk"],
         "status": row["status"],
         "created_at": row["created_at"],
+        "workflow_status": wf["status"] if wf else None,
     }
 
 
@@ -384,27 +505,44 @@ def _transaction_state_summary(txn: dict[str, Any], *, has_writeback: bool) -> s
     return None
 
 
-def _render_detail(request: Request, transaction_id: str, *, error: str | None = None, status_code: int = 200):
+def _render_detail(
+    request: Request,
+    transaction_id: str,
+    user: dict[str, Any],
+    *,
+    error: str | None = None,
+    status_code: int = 200,
+):
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
     vm = _detail_view_model(txn)
     has_wb = _has_accounting_writeback(transaction_id)
+    role = user["role"]
+    txn_audit = list_audit_events_for_transaction(conn, transaction_id, limit=30)
+    wf = get_approval_workflow_for_transaction(conn, transaction_id)
+    wf_steps = list_approval_steps_for_transaction(conn, transaction_id) if wf else []
     return templates.TemplateResponse(
         request,
         "transaction_detail.html",
-        {
-            "txn": vm,
-            "can_approve": _can_approve(txn),
-            "can_execute": _can_execute(txn),
-            "has_receipt": _has_receipt(vm),
-            "has_accounting_writeback": has_wb,
-            "display_next_action": _display_next_ui_action(txn, has_writeback=has_wb),
-            "state_summary": _transaction_state_summary(txn, has_writeback=has_wb),
-            "error": error,
-            "static_url": "/static",
-            "version": app.version,
-        },
+        _dash_ctx(
+            request,
+            txn=vm,
+            wf=wf,
+            wf_steps=wf_steps,
+            can_approve=_can_approve(txn) and role_has_permission(role, "approve_transaction"),
+            can_execute=_can_execute(txn) and role_has_permission(role, "execute_transaction"),
+            can_writeback=(
+                txn["status"] == "executed"
+                and role_has_permission(role, "accounting_writeback")
+            ),
+            has_receipt=_has_receipt(vm),
+            has_accounting_writeback=has_wb,
+            display_next_action=_display_next_ui_action(txn, has_writeback=has_wb),
+            state_summary=_transaction_state_summary(txn, has_writeback=has_wb),
+            transaction_audit_events=txn_audit,
+            error=error,
+        ),
         status_code=status_code,
     )
 
@@ -446,8 +584,128 @@ def _compute_dashboard_stats(counts: list) -> dict[str, int]:
     return stats
 
 
+# ---------------------------------------------------------------------------
+# Login / logout / audit (control plane)
+# ---------------------------------------------------------------------------
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request, error: str | None = None):
+    user, redirect = control.require_login(request, conn)
+    if user:
+        return RedirectResponse(url="/dashboard", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        _dash_ctx(request, error=error),
+    )
+
+
+@app.post("/login")
+def login_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    csrf_token: str = Form(default=""),
+):
+    csrf_resp = control.require_csrf(
+        request, conn, user=None, csrf_token=csrf_token,
+        target_type="login", target_id=None, version=app.version,
+    )
+    if csrf_resp:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _dash_ctx(request, error="Invalid or missing CSRF token."),
+            status_code=400,
+        )
+    user = get_user_by_email(conn, email.strip().lower())
+    if not user or not user.get("is_active"):
+        control.write_audit_event(
+            conn, request, action="login_failed", target_type="login",
+            target_id=email, event={"reason": "unknown_or_inactive"},
+        )
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _dash_ctx(request, error="Invalid email or password."),
+            status_code=401,
+        )
+    if not verify_password(password, user["password_salt"], user["password_hash"]):
+        control.write_audit_event(
+            conn, request, action="login_failed", target_type="login",
+            target_id=email, event={"reason": "bad_password"},
+        )
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _dash_ctx(request, error="Invalid email or password."),
+            status_code=401,
+        )
+    control.login_session(request, user)
+    control.write_audit_event(
+        conn, request, action="login_success", target_type="user",
+        target_id=user["id"], actor=user,
+    )
+    return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@app.post("/logout")
+def logout_submit(request: Request, csrf_token: str = Form(default="")):
+    user = control.get_session_user(request, conn)
+    csrf_resp = control.require_csrf(
+        request, conn, user=user, csrf_token=csrf_token,
+        target_type="logout", target_id=None, version=app.version,
+    )
+    if csrf_resp:
+        return csrf_resp
+    if user:
+        control.write_audit_event(
+            conn, request, action="logout", target_type="user",
+            target_id=user["id"], actor=user,
+        )
+    control.logout_session(request)
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/dashboard/audit", response_class=HTMLResponse)
+def dashboard_audit_log(request: Request):
+    user, blocked = _dash_guard(request, "view_audit_log", "audit_log")
+    if blocked:
+        return blocked
+    events = list_audit_events(conn, limit=100)
+    return templates.TemplateResponse(
+        request,
+        "audit_log.html",
+        _dash_ctx(request, events=events),
+    )
+
+
+from app.admin_routes import mount_admin_routes
+
+import sys as _sys
+_main_mod = _sys.modules[__name__]
+
+mount_admin_routes(
+    app,
+    get_conn=lambda: _main_mod.conn,
+    templates=templates,
+    dash_ctx=_dash_ctx,
+    dash_guard=_dash_guard,
+    dash_csrf=_dash_csrf,
+    version=app.version,
+    get_evidence_dir=lambda: _CONTRACT_EVIDENCE_DIR,
+)
+
+
+# ---------------------------------------------------------------------------
+# Dashboard list view
+# ---------------------------------------------------------------------------
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
+    user, blocked = _dash_guard(request, "view_dashboard", "dashboard")
+    if blocked:
+        return blocked
     rows = conn.execute(
         "SELECT id, agent_id, user_id, intent, action, invoice_json, decision, risk, status, created_at "
         "FROM transactions ORDER BY created_at DESC LIMIT 50"
@@ -460,14 +718,14 @@ def dashboard(request: Request):
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {
-            "rows": [_row_to_listing(row) for row in rows],
-            "stats": stats,
-            "crowded": crowded,
-            "demo_examples": list(DEMO_EXAMPLES.keys()),
-            "version": app.version,
-            "static_url": "/static",
-        },
+        _dash_ctx(
+            request,
+            rows=[_row_to_listing(row) for row in rows],
+            stats=stats,
+            crowded=crowded,
+            demo_examples=list(DEMO_EXAMPLES.keys()),
+            can_demo_preflight=role_has_permission(user["role"], "demo_preflight"),
+        ),
     )
 
 
@@ -476,9 +734,24 @@ def dashboard(request: Request):
 # ---------------------------------------------------------------------------
 
 @app.post("/dashboard/demo/{example_name}")
-def dashboard_demo_preflight(example_name: str):
+def dashboard_demo_preflight(
+    request: Request, example_name: str, csrf_token: str = Form(default=""),
+):
+    user, blocked = _dash_guard(request, "demo_preflight", "demo", example_name)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "demo", example_name)
+    if csrf_resp:
+        return csrf_resp
     req = _load_demo_request(example_name)
     result = run_preflight(conn, req)
+    control.write_audit_event(
+        conn, request, action="demo_preflight_created", target_type="transaction",
+        target_id=result.transaction_id,
+        event={"example_name": example_name, "decision": result.decision},
+        actor=user,
+    )
+    _create_workflow_if_needed(request, result.transaction_id, user)
     return RedirectResponse(
         url=f"/dashboard/transactions/{result.transaction_id}",
         status_code=303,
@@ -491,50 +764,201 @@ def dashboard_demo_preflight(example_name: str):
 
 @app.get("/dashboard/transactions/{transaction_id}", response_class=HTMLResponse)
 def dashboard_transaction_detail(request: Request, transaction_id: str, error: str | None = None):
-    return _render_detail(request, transaction_id, error=error)
+    user, blocked = _dash_guard(request, "view_transaction", "transaction", transaction_id)
+    if blocked:
+        return blocked
+    return _render_detail(request, transaction_id, user, error=error)
 
 
 @app.post("/dashboard/transactions/{transaction_id}/approve")
-def dashboard_approve(request: Request, transaction_id: str, note: str | None = Form(default=None)):
+def dashboard_approve(
+    request: Request,
+    transaction_id: str,
+    note: str | None = Form(default=None),
+    csrf_token: str = Form(default=""),
+):
+    user, blocked = _dash_guard(request, "approve_transaction", "transaction", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "transaction", transaction_id)
+    if csrf_resp:
+        return csrf_resp
     try:
-        _approve_transaction(transaction_id, DASHBOARD_APPROVER_ID, note or None)
+        txn = get_transaction(conn, transaction_id)
+        if not txn:
+            raise HTTPException(status_code=404, detail="transaction_not_found")
+
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if not wf or wf["status"] != "pending":
+            _approve_transaction(transaction_id, user["email"], note or None)
+            control.write_audit_event(
+                conn, request, action="transaction_approved", target_type="transaction",
+                target_id=transaction_id, event={"note": note}, actor=user,
+            )
+        else:
+            if not enforce_maker_checker(user, txn):
+                control.write_audit_event(
+                    conn, request, action="approval_separation_denied", target_type="transaction",
+                    target_id=transaction_id, event={"reason": "maker cannot be checker"}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail="Separation of duties: you cannot approve a transaction you created.")
+
+            step = get_current_pending_approval_step(conn, transaction_id)
+            if not step:
+                raise HTTPException(status_code=400, detail="no_pending_steps")
+            
+            # Enforce role
+            if user["role"] != step["required_role"] and user["role"] != "admin":
+                control.write_audit_event(
+                    conn, request, action="approval_wrong_role_denied", target_type="transaction",
+                    target_id=transaction_id, event={"required_role": step["required_role"], "user_role": user["role"]}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail=f"This step requires the {step['required_role']} role.")
+
+            # Record step decision
+            record_approval_step_decision(
+                conn, step_id=step["id"], status="approved", 
+                approver_user_id=user["id"], approver_email=user["email"], note=note
+            )
+            control.write_audit_event(
+                conn, request, action="approval_step_completed", target_type="transaction",
+                target_id=transaction_id, event={"step_id": step["id"], "note": note}, actor=user,
+            )
+
+            # Check if workflow is complete
+            if mark_workflow_approved_if_complete(conn, transaction_id):
+                _approve_transaction(transaction_id, user["email"], note or None)
+                control.write_audit_event(
+                    conn, request, action="transaction_approved", target_type="transaction",
+                    target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+                )
+
     except HTTPException as exc:
-        return _render_detail(request, transaction_id, error=str(exc.detail), status_code=exc.status_code)
+        return _render_detail(
+            request, transaction_id, user, error=str(exc.detail), status_code=exc.status_code,
+        )
     return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}", status_code=303)
 
 
 @app.post("/dashboard/transactions/{transaction_id}/reject")
-def dashboard_reject(request: Request, transaction_id: str, note: str | None = Form(default=None)):
+def dashboard_reject(
+    request: Request,
+    transaction_id: str,
+    note: str | None = Form(default=None),
+    csrf_token: str = Form(default=""),
+):
+    user, blocked = _dash_guard(request, "reject_transaction", "transaction", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "transaction", transaction_id)
+    if csrf_resp:
+        return csrf_resp
     try:
-        _reject_transaction(transaction_id, DASHBOARD_APPROVER_ID, note or None)
+        txn = get_transaction(conn, transaction_id)
+        if not txn:
+            raise HTTPException(status_code=404, detail="transaction_not_found")
+            
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if not wf or wf["status"] != "pending":
+            _reject_transaction(transaction_id, user["email"], note or None)
+            control.write_audit_event(
+                conn, request, action="transaction_rejected", target_type="transaction",
+                target_id=transaction_id, event={"note": note}, actor=user,
+            )
+        else:
+            if not enforce_maker_checker(user, txn):
+                control.write_audit_event(
+                    conn, request, action="approval_separation_denied", target_type="transaction",
+                    target_id=transaction_id, event={"reason": "maker cannot be checker"}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail="Separation of duties: you cannot reject a transaction you created.")
+                
+            step = get_current_pending_approval_step(conn, transaction_id)
+            if not step:
+                raise HTTPException(status_code=400, detail="no_pending_steps")
+
+            # Enforce role
+            if user["role"] != step["required_role"] and user["role"] != "admin":
+                control.write_audit_event(
+                    conn, request, action="approval_wrong_role_denied", target_type="transaction",
+                    target_id=transaction_id, event={"required_role": step["required_role"], "user_role": user["role"]}, actor=user,
+                )
+                raise HTTPException(status_code=403, detail=f"This step requires the {step['required_role']} role.")
+
+            # Reject step and workflow
+            record_approval_step_decision(
+                conn, step_id=step["id"], status="rejected", 
+                approver_user_id=user["id"], approver_email=user["email"], note=note
+            )
+            mark_workflow_rejected(conn, transaction_id)
+            _reject_transaction(transaction_id, user["email"], note or None)
+
+            control.write_audit_event(
+                conn, request, action="approval_step_rejected", target_type="transaction",
+                target_id=transaction_id, event={"step_id": step["id"], "note": note}, actor=user,
+            )
+            control.write_audit_event(
+                conn, request, action="approval_workflow_rejected", target_type="transaction",
+                target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+            )
+
     except HTTPException as exc:
-        return _render_detail(request, transaction_id, error=str(exc.detail), status_code=exc.status_code)
+        return _render_detail(
+            request, transaction_id, user, error=str(exc.detail), status_code=exc.status_code,
+        )
     return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}", status_code=303)
 
 
 @app.post("/dashboard/transactions/{transaction_id}/execute")
-def dashboard_execute(request: Request, transaction_id: str):
+def dashboard_execute(
+    request: Request,
+    transaction_id: str,
+    csrf_token: str = Form(default=""),
+):
+    user, blocked = _dash_guard(request, "execute_transaction", "transaction", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "transaction", transaction_id)
+    if csrf_resp:
+        return csrf_resp
     try:
+        wf = get_approval_workflow_for_transaction(conn, transaction_id)
+        if wf and wf["status"] == "pending":
+            control.write_audit_event(
+                conn, request, action="execution_denied_workflow_pending", target_type="transaction",
+                target_id=transaction_id, event={"workflow_id": wf["id"]}, actor=user,
+            )
+            raise HTTPException(status_code=400, detail="Cannot execute: approval workflow is still pending.")
+
         _execute_transaction(transaction_id)
+        control.write_audit_event(
+            conn, request, action="transaction_executed", target_type="transaction",
+            target_id=transaction_id, actor=user,
+        )
     except HTTPException as exc:
-        return _render_detail(request, transaction_id, error=str(exc.detail), status_code=exc.status_code)
+        return _render_detail(
+            request, transaction_id, user, error=str(exc.detail), status_code=exc.status_code,
+        )
     return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}", status_code=303)
 
 
 @app.get("/dashboard/transactions/{transaction_id}/receipt", response_class=HTMLResponse)
 def dashboard_receipt(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_receipt", "receipt", transaction_id)
+    if blocked:
+        return blocked
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
     vm = _detail_view_model(txn)
+    control.write_audit_event(
+        conn, request, action="receipt_viewed", target_type="receipt",
+        target_id=transaction_id, actor=user,
+    )
     return templates.TemplateResponse(
         request,
         "receipt.html",
-        {
-            "txn": vm,
-            "static_url": "/static",
-            "version": app.version,
-        },
+        _dash_ctx(request, txn=vm),
     )
 
 
@@ -563,14 +987,13 @@ def _sha256_of_bytes(data: bytes) -> str:
 
 @app.get("/dashboard/invoices/upload", response_class=HTMLResponse)
 def upload_invoice_form(request: Request):
+    user, blocked = _dash_guard(request, "upload_invoice", "upload")
+    if blocked:
+        return blocked
     return templates.TemplateResponse(
         request,
         "invoice_upload.html",
-        {
-            "static_url": "/static",
-            "version": app.version,
-            "error": None,
-        },
+        _dash_ctx(request, error=None),
     )
 
 
@@ -578,7 +1001,14 @@ def upload_invoice_form(request: Request):
 async def upload_invoice_submit(
     request: Request,
     file: UploadFile = File(...),
+    csrf_token: str = Form(default=""),
 ):
+    user, blocked = _dash_guard(request, "upload_invoice", "upload")
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "upload", None)
+    if csrf_resp:
+        return csrf_resp
     """
     Validate the uploaded file, run extraction/OCR, save the uploaded_document
     record, then redirect to the review screen.  Does NOT create a transaction.
@@ -590,14 +1020,13 @@ async def upload_invoice_submit(
         return templates.TemplateResponse(
             request,
             "invoice_upload.html",
-            {
-                "static_url": "/static",
-                "version": app.version,
-                "error": (
+            _dash_ctx(
+                request,
+                error=(
                     f"Unsupported file type '{suffix}' / '{content_type}'. "
                     "Accepted: PDF, PNG, JPG."
                 ),
-            },
+            ),
             status_code=400,
         )
 
@@ -660,6 +1089,13 @@ async def upload_invoice_submit(
         ocr_metadata=ocr_metadata,
     )
 
+    control.write_audit_event(
+        conn, request, action="invoice_uploaded", target_type="uploaded_document",
+        target_id=doc_id,
+        event={"filename": file.filename, "sha256": sha256},
+        actor=user,
+    )
+
     return RedirectResponse(
         url=f"/dashboard/invoices/review/{doc_id}",
         status_code=303,
@@ -670,18 +1106,16 @@ async def upload_invoice_submit(
 
 @app.get("/dashboard/invoices/review/{doc_id}", response_class=HTMLResponse)
 def upload_invoice_review(request: Request, doc_id: str, error: str | None = None):
+    user, blocked = _dash_guard(request, "review_invoice", "uploaded_document", doc_id)
+    if blocked:
+        return blocked
     doc = get_uploaded_document(conn, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="document_not_found")
     return templates.TemplateResponse(
         request,
         "invoice_review.html",
-        {
-            "doc": doc,
-            "error": error,
-            "static_url": "/static",
-            "version": app.version,
-        },
+        _dash_ctx(request, doc=doc, error=error),
     )
 
 
@@ -701,7 +1135,14 @@ def upload_invoice_review_submit(
     contract_id: str = Form(default=""),
     line_items: str = Form(default=""),
     human_approval: str = Form(default=""),
+    csrf_token: str = Form(default=""),
 ):
+    user, blocked = _dash_guard(request, "review_invoice", "uploaded_document", doc_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "uploaded_document", doc_id)
+    if csrf_resp:
+        return csrf_resp
     doc = get_uploaded_document(conn, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="document_not_found")
@@ -743,12 +1184,7 @@ def upload_invoice_review_submit(
         return templates.TemplateResponse(
             request,
             "invoice_review.html",
-            {
-                "doc": doc_fresh,
-                "error": primary + extra,
-                "static_url": "/static",
-                "version": app.version,
-            },
+            _dash_ctx(request, doc=doc_fresh, error=primary + extra),
             status_code=400,
         )
 
@@ -778,7 +1214,7 @@ def upload_invoice_review_submit(
 
     preflight_req = PreflightRequest(
         agent_id="dashboard_upload_user",
-        user_id="controller_001",
+        user_id=user["email"],
         intent="pay_invoice",
         action="approve_invoice",
         invoice=invoice_input,
@@ -786,6 +1222,13 @@ def upload_invoice_review_submit(
     )
 
     result = run_preflight(conn, preflight_req)
+    control.write_audit_event(
+        conn, request, action="invoice_review_submitted", target_type="transaction",
+        target_id=result.transaction_id,
+        event={"document_id": doc_id, "invoice_id": confirmed.get("invoice_id")},
+        actor=user,
+    )
+    _create_workflow_if_needed(request, result.transaction_id, user)
     return RedirectResponse(
         url=f"/dashboard/transactions/{result.transaction_id}",
         status_code=303,
@@ -797,22 +1240,35 @@ def upload_invoice_review_submit(
 # ---------------------------------------------------------------------------
 
 @app.post("/dashboard/transactions/{transaction_id}/writeback/accounting-sandbox")
-def dashboard_writeback_accounting_post(request: Request, transaction_id: str):
+def dashboard_writeback_accounting_post(
+    request: Request,
+    transaction_id: str,
+    csrf_token: str = Form(default=""),
+):
+    user, blocked = _dash_guard(request, "accounting_writeback", "accounting_writeback", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "accounting_writeback", transaction_id)
+    if csrf_resp:
+        return csrf_resp
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
 
     if txn["status"] != "executed":
         return _render_detail(
-            request, transaction_id,
+            request, transaction_id, user,
             error="Accounting writeback requires an executed transaction. "
                   "Approve and execute the transaction first.",
             status_code=400,
         )
 
-    # Idempotency: return existing writeback if already done
     existing = get_accounting_writeback(conn, transaction_id, _ACCOUNTING_PROVIDER)
     if existing:
+        control.write_audit_event(
+            conn, request, action="accounting_writeback_viewed", target_type="accounting_writeback",
+            target_id=transaction_id, event={"idempotent": True}, actor=user,
+        )
         return RedirectResponse(
             url=f"/dashboard/transactions/{transaction_id}/writeback/accounting-sandbox",
             status_code=303,
@@ -823,11 +1279,7 @@ def dashboard_writeback_accounting_post(request: Request, transaction_id: str):
     try:
         wb_result = adapter.create_draft_bill(txn)
     except ValueError as exc:
-        return _render_detail(
-            request, transaction_id,
-            error=str(exc),
-            status_code=400,
-        )
+        return _render_detail(request, transaction_id, user, error=str(exc), status_code=400)
 
     save_accounting_writeback(
         conn,
@@ -838,6 +1290,11 @@ def dashboard_writeback_accounting_post(request: Request, transaction_id: str):
         external_id=wb_result.external_id,
         result=wb_result.model_dump(),
     )
+    control.write_audit_event(
+        conn, request, action="accounting_writeback_created", target_type="accounting_writeback",
+        target_id=transaction_id,
+        event={"external_id": wb_result.external_id}, actor=user,
+    )
 
     return RedirectResponse(
         url=f"/dashboard/transactions/{transaction_id}/writeback/accounting-sandbox",
@@ -847,11 +1304,19 @@ def dashboard_writeback_accounting_post(request: Request, transaction_id: str):
 
 @app.get("/dashboard/transactions/{transaction_id}/writeback/accounting-sandbox", response_class=HTMLResponse)
 def dashboard_writeback_accounting_get(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_transaction", "accounting_writeback", transaction_id)
+    if blocked:
+        return blocked
     txn = get_transaction(conn, transaction_id)
     if not txn:
         raise HTTPException(status_code=404, detail="transaction_not_found")
 
     wb = get_accounting_writeback(conn, transaction_id, _ACCOUNTING_PROVIDER)
+    if wb:
+        control.write_audit_event(
+            conn, request, action="accounting_writeback_viewed", target_type="accounting_writeback",
+            target_id=transaction_id, actor=user,
+        )
 
     draft_bill_data: dict | None = None
     audit_packet_data: dict | None = None
@@ -878,14 +1343,160 @@ def dashboard_writeback_accounting_get(request: Request, transaction_id: str):
     return templates.TemplateResponse(
         request,
         "accounting_writeback.html",
-        {
-            "txn": _detail_view_model(txn),
-            "wb": wb,
-            "draft_bill": draft_bill_data,
-            "audit_packet": audit_packet_data,
-            "draft_bill_ref": draft_bill_ref,
-            "audit_packet_ref": audit_packet_ref,
-            "static_url": "/static",
-            "version": app.version,
-        },
+        _dash_ctx(
+            request,
+            txn=_detail_view_model(txn),
+            wb=wb,
+            draft_bill=draft_bill_data,
+            audit_packet=audit_packet_data,
+            draft_bill_ref=draft_bill_ref,
+            audit_packet_ref=audit_packet_ref,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5E: Evidence Packs, Replay, Risk Monitor
+# ---------------------------------------------------------------------------
+from app.evidence_pack import build_transaction_evidence_pack
+from app.replay import build_transaction_replay
+from app.store import get_latest_evidence_export_for_transaction, save_evidence_export
+
+@app.get("/dashboard/transactions/{transaction_id}/evidence-pack", response_class=HTMLResponse)
+def dashboard_evidence_pack_get(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_evidence_pack", "evidence_pack", transaction_id)
+    if blocked:
+        return blocked
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    latest_export = get_latest_evidence_export_for_transaction(conn, transaction_id)
+    pack = build_transaction_evidence_pack(conn, transaction_id, user)
+    import json
+    pack_json = json.dumps(pack, indent=2, default=str)
+    
+    control.write_audit_event(
+        conn, request, action="evidence_pack_viewed", target_type="evidence_pack",
+        target_id=transaction_id, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "evidence_pack.html",
+        _dash_ctx(
+            request, 
+            txn=_detail_view_model(txn), 
+            pack=pack, 
+            pack_json=pack_json,
+            latest_export=latest_export,
+            can_export=role_has_permission(user["role"], "export_evidence_pack")
+        ),
+    )
+
+@app.post("/dashboard/transactions/{transaction_id}/evidence-pack/export")
+def dashboard_evidence_pack_export(
+    request: Request, transaction_id: str, csrf_token: str = Form(default="")
+):
+    user, blocked = _dash_guard(request, "export_evidence_pack", "evidence_pack", transaction_id)
+    if blocked:
+        return blocked
+    csrf_resp = _dash_csrf(request, user, csrf_token, "evidence_pack", transaction_id)
+    if csrf_resp:
+        return csrf_resp
+        
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    pack = build_transaction_evidence_pack(conn, transaction_id, user)
+    export_id = f"exp_{uuid.uuid4().hex[:12]}"
+    filename = f"{transaction_id}_{export_id}.json"
+    dest = _AUDIT_EXPORTS_DIR / filename
+    
+    with open(dest, "w", encoding="utf-8") as f:
+        json.dump(pack, f, indent=2, ensure_ascii=False)
+        
+    local_ref = f"local://audit_exports/{filename}"
+    
+    save_evidence_export(
+        conn,
+        export_id=export_id,
+        transaction_id=transaction_id,
+        actor_user_id=user["id"],
+        actor_email=user["email"],
+        pack_sha256=pack["evidence_pack_sha256"],
+        local_ref=local_ref,
+    )
+    
+    control.write_audit_event(
+        conn, request, action="evidence_pack_exported", target_type="evidence_pack",
+        target_id=transaction_id, event={"export_id": export_id, "local_ref": local_ref}, actor=user,
+    )
+    return RedirectResponse(url=f"/dashboard/transactions/{transaction_id}/evidence-pack", status_code=303)
+
+@app.get("/dashboard/transactions/{transaction_id}/replay", response_class=HTMLResponse)
+def dashboard_replay_get(request: Request, transaction_id: str):
+    user, blocked = _dash_guard(request, "view_transaction_replay", "transaction_replay", transaction_id)
+    if blocked:
+        return blocked
+    txn = get_transaction(conn, transaction_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="transaction_not_found")
+        
+    replay = build_transaction_replay(conn, transaction_id)
+    policy_changed = "unchanged" not in replay.get("differences", [])
+    replay_view = {
+        "original_decision": replay["original_state"]["decision"],
+        "replay_decision": replay["current_state"]["decision"],
+        "differences": [d for d in replay.get("differences", []) if d != "unchanged"],
+        "policy_changed": policy_changed
+    }
+    
+    control.write_audit_event(
+        conn, request, action="transaction_replayed", target_type="transaction",
+        target_id=transaction_id, event={"differences": replay["differences"]}, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "transaction_replay.html",
+        _dash_ctx(request, txn=_detail_view_model(txn), replay=replay_view),
+    )
+
+@app.get("/dashboard/risk", response_class=HTMLResponse)
+def dashboard_risk_monitor(request: Request):
+    user, blocked = _dash_guard(request, "view_risk_monitor", "risk_monitor")
+    if blocked:
+        return blocked
+        
+    rows = conn.execute("SELECT decision, status, COUNT(*) AS n FROM transactions GROUP BY decision, status").fetchall()
+    total_txns = 0
+    blocked_txns = 0
+    needs_evidence_txns = 0
+    
+    for row in rows:
+        n = row["n"]
+        total_txns += n
+        if row["decision"] == "blocked" or row["status"] == "blocked":
+            blocked_txns += n
+        if row["decision"] == "needs_more_evidence":
+            needs_evidence_txns += n
+            
+    recent_audit_events = list_audit_events(conn, limit=100)
+    risk_events = [ev for ev in recent_audit_events if "denied" in ev["action"] or ev["action"] == "login_failed"]
+
+    metrics = {
+        "total_transactions": total_txns,
+        "blocked_transactions": blocked_txns,
+        "needs_evidence": needs_evidence_txns,
+        "recent_security_events": len(risk_events)
+    }
+
+    control.write_audit_event(
+        conn, request, action="risk_monitor_viewed", target_type="risk_monitor",
+        target_id=None, actor=user,
+    )
+    return templates.TemplateResponse(
+        request,
+        "risk_monitor.html",
+        _dash_ctx(request, metrics=metrics, risk_events=risk_events[:20]),
     )

@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 _MINIMAL_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -33,6 +34,7 @@ def _isolated_db(tmp_path, monkeypatch):
     fresh = store.connect(tmp_path / "test.db")
     store.init_db(fresh)
     store.seed_demo(fresh)
+    store.update_policy_settings(fresh, require_contract_above=100000)
     monkeypatch.setattr(main, "conn", fresh)
 
     upload_dir = tmp_path / "uploads"
@@ -63,12 +65,12 @@ def client():
 
 def _full_executed_txn(client: TestClient) -> str:
     """Create an executed transaction via the demo flow. Returns txn_id."""
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    r = client.post(f"/dashboard/transactions/{txn_id}/approve")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
     assert r.status_code == 303
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     assert r.status_code == 303
     return txn_id
 
@@ -257,10 +259,10 @@ def test_db_stores_and_retrieves_writeback():
 # ---------------------------------------------------------------------------
 
 def test_no_writeback_button_before_execution(client: TestClient):
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert detail.status_code == 200
     assert "Create Accounting Sandbox Draft Bill" not in body
@@ -274,7 +276,7 @@ def test_no_writeback_button_before_execution(client: TestClient):
 
 def test_writeback_create_button_shown_after_execution(client: TestClient):
     txn_id = _full_executed_txn(client)
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     assert detail.status_code == 200
     body = detail.text
     assert "Create Accounting Sandbox Draft Bill" in body
@@ -287,7 +289,7 @@ def test_writeback_create_button_shown_after_execution(client: TestClient):
 
 def test_post_writeback_creates_and_redirects(client: TestClient):
     txn_id = _full_executed_txn(client)
-    r = client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r.status_code == 303
     assert f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox" in r.headers["location"]
 
@@ -298,9 +300,9 @@ def test_post_writeback_creates_and_redirects(client: TestClient):
 
 def test_writeback_post_idempotent(client: TestClient):
     txn_id = _full_executed_txn(client)
-    r1 = client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    r1 = dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r1.status_code == 303
-    r2 = client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    r2 = dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r2.status_code == 303
     assert r2.headers["location"] == r1.headers["location"]
 
@@ -311,8 +313,8 @@ def test_writeback_post_idempotent(client: TestClient):
 
 def test_writeback_view_button_after_create(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert "View Accounting Sandbox Writeback" in body
     assert "Create Accounting Sandbox Draft Bill" not in body
@@ -324,8 +326,8 @@ def test_writeback_view_button_after_create(client: TestClient):
 
 def test_writeback_page_shows_safety_note(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    r = client.get(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r.status_code == 200
     body = r.text.lower()
     assert "local accounting sandbox only" in body
@@ -340,8 +342,8 @@ def test_writeback_page_shows_safety_note(client: TestClient):
 
 def test_writeback_page_no_absolute_paths(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    r = client.get(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     body = r.text
     # Windows drive letters and common absolute path patterns
     assert not re.search(r"[A-Za-z]:\\", body)
@@ -356,8 +358,8 @@ def test_writeback_page_no_absolute_paths(client: TestClient):
 
 def test_writeback_page_draft_bill_includes_receipt_signature(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    r = client.get(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r.status_code == 200
     assert "receipt_signature" in r.text
 
@@ -368,8 +370,8 @@ def test_writeback_page_draft_bill_includes_receipt_signature(client: TestClient
 
 def test_writeback_page_audit_packet_includes_checks_and_receipt(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    r = client.get(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
     assert r.status_code == 200
     body = r.text
     assert "checks_json" in body
@@ -388,19 +390,27 @@ def test_full_upload_flow_unaffected(client: TestClient, monkeypatch):
             "status": "not_available", "engine": "none", "text": None, "notes": [],
         },
     )
-    r = client.post("/dashboard/invoices/upload",
-                    files={"file": ("inv.png", _MINIMAL_PNG, "image/png")})
+    r = dash_post(
+        client,
+        "/dashboard/invoices/upload",
+        role="controller",
+        files={"file": ("inv.png", _MINIMAL_PNG, "image/png")},
+    )
     assert r.status_code == 303
     doc_id = r.headers["location"].split("/")[-1]
-    r = client.post(f"/dashboard/invoices/review/{doc_id}/submit",
-                    data={"invoice_id": "INV-WB-001", "vendor": "Acme Services", "amount": "20000"})
+    r = dash_post(
+        client,
+        f"/dashboard/invoices/review/{doc_id}/submit",
+        role="controller",
+        data={"invoice_id": "INV-WB-001", "vendor": "Acme Services", "amount": "20000"},
+    )
     assert r.status_code == 303
     txn_id = r.headers["location"].split("/")[-1]
-    r = client.post(f"/dashboard/transactions/{txn_id}/approve")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
     assert r.status_code == 303
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     assert r.status_code == 303
-    receipt = client.get(f"/dashboard/transactions/{txn_id}/receipt")
+    receipt = dash_get(client, f"/dashboard/transactions/{txn_id}/receipt")
     assert receipt.status_code == 200
     assert "receipt_signature" in receipt.text or "Signed payload" in receipt.text
 
@@ -410,10 +420,10 @@ def test_full_upload_flow_unaffected(client: TestClient, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_demo_flow_unaffected(client: TestClient):
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     assert r.status_code == 303
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     assert "approval required" in r.text.lower()
 
@@ -434,9 +444,9 @@ def test_json_api_shapes_unchanged(client: TestClient):
 # ---------------------------------------------------------------------------
 
 def test_approval_required_shows_request_finance_approval_next_action(client: TestClient):
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert detail.status_code == 200
     assert _next_ui_action_from_detail(body) == "request_finance_approval"
@@ -444,9 +454,9 @@ def test_approval_required_shows_request_finance_approval_next_action(client: Te
 
 
 def test_blocked_shows_send_to_human_review_next_action(client: TestClient):
-    r = client.post("/dashboard/demo/duplicate_blocked")
+    r = dash_post(client, "/dashboard/demo/duplicate_blocked", role="controller")
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert _next_ui_action_from_detail(body) == "send_to_human_review"
     assert "Transaction blocked by policy. Execution is unavailable." in body
@@ -462,7 +472,7 @@ def _next_ui_action_from_detail(body: str) -> str | None:
 
 def test_executed_without_writeback_shows_create_writeback_next_action(client: TestClient):
     txn_id = _full_executed_txn(client)
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert _next_ui_action_from_detail(body) == "create_accounting_sandbox_writeback"
     assert "Execution complete. A signed receipt exists." in body
@@ -472,8 +482,8 @@ def test_executed_without_writeback_shows_create_writeback_next_action(client: T
 
 def test_executed_with_writeback_shows_view_writeback_next_action(client: TestClient):
     txn_id = _full_executed_txn(client)
-    client.post(f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox")
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/writeback/accounting-sandbox", role="executor")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     body = detail.text
     assert _next_ui_action_from_detail(body) == "view_accounting_sandbox_writeback"
     assert "Signed receipt and local accounting sandbox writeback are available." in body
@@ -482,8 +492,8 @@ def test_executed_with_writeback_shows_view_writeback_next_action(client: TestCl
 
 
 def test_approved_shows_execute_action_next_action(client: TestClient):
-    r = client.post("/dashboard/demo/approval_required")
+    r = dash_post(client, "/dashboard/demo/approval_required", role="controller")
     txn_id = re.search(r"txn_[a-f0-9]+", r.headers["location"]).group()
-    client.post(f"/dashboard/transactions/{txn_id}/approve")
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}", role="executor")
     assert _next_ui_action_from_detail(detail.text) == "execute_action"

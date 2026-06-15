@@ -37,6 +37,7 @@
         <span class="neo-badge neo-badge--risk-{{ txn.risk }}">{{ txn.risk }} risk</span>
         <span class="neo-badge neo-badge--status-{{ txn.status }}">{{ txn.status }}</span>
       </div>
+      {% include "partials/control_nav.html" %}
     </header>
 
     {% if error %}
@@ -60,23 +61,29 @@
       <div class="neo-actions">
         {% if can_approve %}
         <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/approve">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <button class="neo-btn" type="submit">Approve</button>
         </form>
         <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/reject">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <button class="neo-btn neo-btn--ghost" type="submit">Reject</button>
         </form>
         {% endif %}
         {% if can_execute %}
         <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/execute">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <button class="neo-btn" type="submit">Execute</button>
         </form>
         {% endif %}
         {% if has_receipt %}
         <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/receipt">View receipt</a>
         {% endif %}
-        {% if txn.status == 'executed' %}
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/evidence-pack">Evidence Pack</a>
+        <a class="neo-btn neo-btn--ghost" href="/dashboard/transactions/{{ txn.id }}/replay">Replay</a>
+        {% if txn.status == 'executed' and can_writeback %}
           {% if not has_accounting_writeback %}
         <form class="neo-form-inline" method="post" action="/dashboard/transactions/{{ txn.id }}/writeback/accounting-sandbox">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <button class="neo-btn neo-btn--ghost" type="submit">Create Accounting Sandbox Draft Bill</button>
         </form>
           {% else %}
@@ -275,6 +282,46 @@
       {% endif %}
     </section>
 
+    {% if wf %}
+    <section class="neo-section" aria-labelledby="workflow-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="workflow-heading">Approval Workflow</h2>
+        <span class="neo-badge neo-badge--status-{{ wf.status }}">{{ wf.status }}</span>
+      </div>
+      <div class="neo-detail-grid" style="margin-bottom: 16px;">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Workflow Type</div>
+          <div class="neo-detail-card__value"><code>{{ wf.workflow_type }}</code></div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Progress</div>
+          <div class="neo-detail-card__value">{{ wf.completed_approvals }} / {{ wf.required_approvals }} completed</div>
+        </div>
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <div class="neo-detail-card__label">Reason</div>
+          <div class="neo-detail-card__value">{{ wf.reason }}</div>
+        </div>
+      </div>
+      <ul class="neo-check-list">
+        {% for step in wf_steps %}
+        <li class="neo-check-item neo-check-item--{{ step.status }}">
+          <div class="neo-check-item__head">
+            <span class="neo-check-item__name">Step {{ step.step_order }} required role: <code>{{ step.required_role }}</code></span>
+            <span class="neo-badge neo-badge--check-{{ step.status }}">{{ step.status }}</span>
+          </div>
+          {% if step.status != 'pending' %}
+          <div class="neo-check-item__msg" style="margin-top: 8px;">
+            By: {{ step.approver_email }}<br>
+            Note: {{ step.note or 'None' }}<br>
+            <span style="font-family: ui-monospace, monospace; font-size: 0.85rem">{{ step.decided_at }}</span>
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     {% if txn.approval %}
     <section class="neo-section" aria-labelledby="approval-heading">
       <div class="neo-section__head">
@@ -320,7 +367,7 @@
     </section>
     {% endif %}
 
-    {% if txn.status == 'executed' %}
+    {% if txn.status == 'executed' and can_writeback %}
     <section class="neo-section" aria-labelledby="writeback-heading">
       <div class="neo-section__head">
         <h2 class="neo-section__title" id="writeback-heading">Accounting sandbox writeback</h2>
@@ -341,6 +388,24 @@
       {% else %}
       <p>No writeback yet. Use the action above to create a local sandbox draft bill.</p>
       {% endif %}
+    </section>
+    {% endif %}
+
+    {% if transaction_audit_events %}
+    <section class="neo-section" aria-labelledby="txn-audit-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="txn-audit-heading">Transaction timeline</h2>
+        <span class="neo-section__hint">{{ transaction_audit_events|length }} event(s)</span>
+      </div>
+      <div class="neo-detail-grid">
+        <div class="neo-detail-card" style="grid-column: 1 / -1">
+          <ul class="neo-note-list">
+            {% for ev in transaction_audit_events %}
+            <li><code>{{ ev.created_at }}</code> · {{ ev.actor_email or 'system' }} · <strong>{{ ev.action }}</strong></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
     </section>
     {% endif %}
 

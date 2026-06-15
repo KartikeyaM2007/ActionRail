@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transaction Replay - ActionRail Finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap&family=Space+Grotesk:wght@900&display=block"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/static/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/transactions/txn_67c4a59d0153">← Back to Transaction</a>
+        <h1 class="neo-title" style="margin-top: 16px">Transaction Replay</h1>
+        <p class="neo-subtitle">Compare current policy simulation against original execution for <code>txn_67c4a59d0153</code></p>
+      </div>
+      <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
+        <nav class="neo-control-nav" aria-label="Control plane">
+  
+  <span class="neo-tag">
+    Signed in as admin@example.local · role admin
+  </span>
+  
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/audit">Audit log</a>
+  
+  
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/admin">Admin</a>
+  <a class="neo-btn neo-btn--ghost" href="/dashboard/risk">Risk Monitor</a>
+  
+  <form class="neo-form-inline" method="post" action="/logout">
+    <input type="hidden" name="csrf_token" value="7dcbd3818f3946a67436cc7934bd18d0d84d3cffc22461c4733c3b25c55a1059" />
+    <button class="neo-btn neo-btn--ghost" type="submit">Logout</button>
+  </form>
+  
+</nav>
+      </nav>
+    </header>
+
+    <section class="neo-section" aria-labelledby="replay-result-heading">
+      <div class="neo-section__head">
+        <h2 class="neo-section__title" id="replay-result-heading">Replay Result</h2>
+      </div>
+      
+      <div class="neo-alert" role="status" style="border-left-color: #10B981;">
+        <strong>Policy Consistent</strong>
+        <p>The current policy produces the exact same outcome as the original execution.</p>
+      </div>
+      
+
+      <div class="neo-detail-grid" style="margin-top: 24px;">
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Original Decision</div>
+          <div class="neo-detail-card__value">
+            <span class="neo-badge neo-badge--decision-blocked">
+              blocked
+            </span>
+          </div>
+        </div>
+        <div class="neo-detail-card">
+          <div class="neo-detail-card__label">Replay Decision</div>
+          <div class="neo-detail-card__value">
+            <span class="neo-badge neo-badge--decision-blocked">
+              blocked
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    
+
+    <footer class="neo-footer">
+      <span>ActionRail Finance · MVP 0.1.0</span>
+      <span class="neo-footer__safety">Demo execution only · No real money moves</span>
+    </footer>
+
+  </main>
+</body>
+</html>

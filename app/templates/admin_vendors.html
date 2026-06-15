@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vendors — Admin</title>
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/admin">← Admin</a>
+        <h1 class="neo-title" style="margin-top: 16px">Vendors</h1>
+      </div>
+      {% include "partials/control_nav.html" %}
+    </header>
+
+    {% if error %}<div class="neo-alert neo-alert--error" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="neo-section">
+      <h2 class="neo-section__title">Create vendor</h2>
+      <form method="post" action="/dashboard/admin/vendors">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <div class="neo-detail-grid">
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="name">Vendor name *</label>
+            <input class="neo-input" id="name" name="name" required />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="gst_number">GST / tax number</label>
+            <input class="neo-input" id="gst_number" name="gst_number" />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="country">Country</label>
+            <input class="neo-input" id="country" name="country" value="IN" />
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="status">Status</label>
+            <select class="neo-input" id="status" name="status">
+              <option value="pending_review">pending_review</option>
+              <option value="verified">verified</option>
+              <option value="blocked">blocked</option>
+            </select>
+          </div>
+          <div class="neo-detail-card">
+            <label class="neo-detail-card__label" for="risk_level">Risk tier</label>
+            <select class="neo-input" id="risk_level" name="risk_level">
+              <option value="low">low</option>
+              <option value="medium" selected>medium</option>
+              <option value="high">high</option>
+            </select>
+          </div>
+          <div class="neo-detail-card" style="grid-column:1/-1">
+            <label class="neo-detail-card__label" for="notes">Notes</label>
+            <textarea class="neo-input" id="notes" name="notes" rows="2"></textarea>
+          </div>
+        </div>
+        <button class="neo-btn" type="submit" style="margin-top:16px">Create vendor</button>
+      </form>
+    </section>
+
+    <section class="neo-section">
+      <h2 class="neo-section__title">All vendors</h2>
+      <table class="neo-table">
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Risk</th><th>Country</th><th>View</th></tr>
+        </thead>
+        <tbody>
+          {% for v in vendors %}
+          <tr>
+            <td>{{ v.name }}</td>
+            <td><code>{{ v.status }}</code></td>
+            <td>{{ v.risk_level }}</td>
+            <td>{{ v.country or '—' }}</td>
+            <td><a href="/dashboard/admin/vendors/{{ v.id }}">Detail</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

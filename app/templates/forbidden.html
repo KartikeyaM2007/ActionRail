@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forbidden — ActionRail Finance</title>
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard">← Dashboard</a>
+        <h1 class="neo-title" style="margin-top: 16px">Not allowed</h1>
+      </div>
+      {% include "partials/control_nav.html" %}
+    </header>
+
+    <div class="neo-alert neo-alert--error" role="alert">
+      {{ error or "You do not have permission to perform this action." }}
+    </div>
+
+    <section class="neo-section">
+      <a class="neo-btn neo-btn--ghost" href="/dashboard">Back to dashboard</a>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ vendor.name }} — Vendor</title>
+  <link rel="stylesheet" href="{{ static_url }}/neo.css" />
+</head>
+<body>
+  <main class="neo-shell">
+    <header class="neo-header">
+      <div>
+        <a class="neo-tag" href="/dashboard/admin/vendors">← Vendors</a>
+        <h1 class="neo-title" style="margin-top: 16px">{{ vendor.name }}</h1>
+        <p class="neo-subtitle"><code>{{ vendor.id }}</code></p>
+      </div>
+      {% include "partials/control_nav.html" %}
+    </header>
+
+    {% if success %}<div class="neo-alert" role="status">Vendor updated.</div>{% endif %}
+    {% if error %}<div class="neo-alert neo-alert--error" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="neo-section">
+      <form method="post" action="/dashboard/admin/vendors/{{ vendor.id }}/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <div class="neo-detail-grid">
+          <div class="neo-detail-card">
+            <div class="neo-detail-card__label">GST / tax</div>
+            <input class="neo-input" name="gst_number" value="{{ vendor.gst_number or '' }}" />
+          </div>
+          <div class="neo-detail-card">
+            <div class="neo-detail-card__label">Country</div>
+            <input class="neo-input" name="country" value="{{ vendor.country or 'IN' }}" />
+          </div>
+          <div class="neo-detail-card">
+            <div class="neo-detail-card__label">Status</div>
+            <select class="neo-input" name="status">
+              <option value="pending_review" {% if vendor.status == 'pending_review' %}selected{% endif %}>pending_review</option>
+              <option value="verified" {% if vendor.status == 'verified' %}selected{% endif %}>verified</option>
+              <option value="blocked" {% if vendor.status == 'blocked' %}selected{% endif %}>blocked</option>
+            </select>
+          </div>
+          <div class="neo-detail-card">
+            <div class="neo-detail-card__label">Risk tier</div>
+            <select class="neo-input" name="risk_level">
+              <option value="low" {% if vendor.risk_level == 'low' %}selected{% endif %}>low</option>
+              <option value="medium" {% if vendor.risk_level == 'medium' %}selected{% endif %}>medium</option>
+              <option value="high" {% if vendor.risk_level == 'high' %}selected{% endif %}>high</option>
+            </select>
+          </div>
+          <div class="neo-detail-card" style="grid-column:1/-1">
+            <div class="neo-detail-card__label">Notes</div>
+            <textarea class="neo-input" name="notes" rows="3">{{ vendor.notes or '' }}</textarea>
+          </div>
+        </div>
+        <button class="neo-btn" type="submit" style="margin-top:16px">Save changes</button>
+      </form>
+    </section>
+
+    <dl class="neo-doc-summary">
+      <dt>Created</dt><dd>{{ vendor.created_at or '—' }}</dd>
+      <dt>Updated</dt><dd>{{ vendor.updated_at or '—' }}</dd>
+    </dl>
+  </main>
+</body>
+</html>

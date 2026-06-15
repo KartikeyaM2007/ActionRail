@@ -4,22 +4,26 @@ Place captured PNG screenshots in this directory.
 
 **Screenshots are optional for tests** but **recommended before pinning the repo** for demos, README assets, and reviewer clarity.
 
-## Canonical screenshot list (01–13)
+## Canonical screenshot list (01–17)
 
 ```txt
-01-dashboard-clean.png
-02-transaction-approval-required.png
-03-transaction-approved.png
-04-transaction-executed.png
-05-signed-receipt.png
-06-duplicate-blocked.png
-07-missing-evidence.png
-08-upload-real-invoice.png
-09-review-extracted-invoice.png
-10-uploaded-invoice-transaction.png
-11-uploaded-invoice-receipt.png
-12-accounting-sandbox-writeback.png
-13-executed-transaction-with-writeback.png
+01-login.png
+02-dashboard-clean.png
+03-invoice-upload.png
+04-invoice-review.png
+05-transaction-detail-preflight.png
+06-approval-workflow.png
+07-execution-ready.png
+08-signed-receipt.png
+09-accounting-writeback.png
+10-evidence-pack.png
+11-replay.png
+12-risk-monitor.png
+13-audit-log.png
+14-admin-vendors.png
+15-admin-contracts.png
+16-admin-policies.png
+17-admin-api-clients.png
 ```
 
 Commit PNGs to this directory only if they contain safe demo data with no personal or real financial information.
@@ -32,95 +36,38 @@ Always capture against a freshly reset database so the queue is empty before you
 # 1. Stop uvicorn if it's running.
 python scripts/reset_demo_db.py
 uvicorn app.main:app --reload
-# 2. Open http://127.0.0.1:8000/dashboard at desktop width (≥ 1280px, zoom 90–100%).
+# 2. Open http://127.0.0.1:8000 at desktop width (≥ 1280px, zoom 90–100%).
 ```
 
-For the real-upload demo (screenshots 08–11), also prepare sample images:
+For the real-upload demo, prepare sample images:
 
 ```bash
 python scripts/prepare_invoice_samples.py --limit 10
-# Files copied to: data/datasets/kaggle-invoices-sample/
-# Use: data/datasets/kaggle-invoices-sample/batch1-0001.jpg
 ```
-
-**Do not commit raw uploaded invoices unless they are safe sample images without personal/financial data.**
 
 ## Capture flow
 
 Run this exact sequence; each step maps to one screenshot.
 
-| # | Action | Filename |
-|---|---|---|
-| 01 | Open `/dashboard` immediately after the reset (queue is empty; the empty state lists the recommended demo order). | `01-dashboard-clean.png` |
-| 02 | Click **Approval Required Invoice**. Capture the resulting transaction detail page (decision = `approval required`, status = `preflighted`, both **Approve** and **Reject** buttons visible). | `02-transaction-approval-required.png` |
-| 03 | On that same transaction click **Approve**. Capture the page after the redirect (status = `approved`, **Execute** button now visible, **Reject** button gone). | `03-transaction-approved.png` |
-| 04 | Click **Execute**. Capture the page (status = `executed`, **View Receipt** link visible, execution panel populated). | `04-transaction-executed.png` |
-| 05 | Click **View Receipt**. Capture the receipt page showing receipt ID, full HMAC-SHA256 signature, and the signed canonical JSON payload. | `05-signed-receipt.png` |
-| 06 | Return to `/dashboard`, click **Duplicate Invoice**, capture the resulting detail page (decision = `blocked`, no Execute button, `duplicate_invoice` check failed in the checks list). | `06-duplicate-blocked.png` |
-| 07 | Return to `/dashboard`, click **Missing Evidence Invoice**, capture the detail page (decision = `needs more evidence`, `evidence_attached` check status `needs_evidence`, no Execute button). | `07-missing-evidence.png` |
-
-## Naming convention
-
-* Two-digit zero-padded prefix (`01`, `02`, …) so the files sort in capture order.
-* All lowercase, hyphenated.
-* `.png` only — vector text rendering stays crisp on retina displays.
-* Keep originals at the captured resolution. Do not down-rez or compress before commit.
-
-Screenshots are not required for `pytest -q` to pass. Capture them before a public demo recording or when adding visual assets to the GitHub README.
-
-## Required filenames
-
-The list below duplicates the canonical list above for quick reference during capture:
-
-```txt
-01-dashboard-clean.png
-02-transaction-approval-required.png
-03-transaction-approved.png
-04-transaction-executed.png
-05-signed-receipt.png
-06-duplicate-blocked.png
-07-missing-evidence.png
-08-upload-real-invoice.png
-09-review-extracted-invoice.png
-10-uploaded-invoice-transaction.png
-11-uploaded-invoice-receipt.png
-12-accounting-sandbox-writeback.png
-13-executed-transaction-with-writeback.png
-```
-
-### Real-upload demo screenshots (08–11)
-
-These four screenshots capture the two-step upload flow and are optional but recommended for demos that include real invoice images.
-
-| # | Action | Filename |
-|---|---|---|
-| 08 | Open `/dashboard/invoices/upload`. The upload page should show the review-before-transaction copy. | `08-upload-real-invoice.png` |
-| 09 | After uploading `data/datasets/kaggle-invoices-sample/batch1-0001.jpg`, the review screen appears. Capture it showing the yellow "Manual review required" banner (amount not extracted), pre-filled invoice_id and vendor, and the extraction notes list. | `09-review-extracted-invoice.png` |
-| 10 | After entering the amount manually and submitting, the transaction detail page appears. Capture it showing the "Uploaded evidence" section with filename, SHA-256 short, extraction status, and "Reviewed before transaction: Yes — fields confirmed by user" stamp. | `10-uploaded-invoice-transaction.png` |
-| 11 | After approve → execute, the receipt page shows the signed payload. The evidence reference `local://uploaded_documents/{id}` is part of the signed payload. | `11-uploaded-invoice-receipt.png` |
-
-### Accounting sandbox writeback screenshots (12–13, optional)
-
-| # | Action | Filename |
-|---|---|---|
-| 12 | After execute, capture the **transaction detail page before writeback**: state summary shows receipt available, **Next UI action** = `create_accounting_sandbox_writeback`, **Create Accounting Sandbox Draft Bill** button visible. | *(optional pre-writeback detail — use step 04 variant or real-upload post-execute detail)* |
-| 12 | Click **Create Accounting Sandbox Draft Bill**. Capture the writeback page with the safety banner and writeback summary. Expand **draft bill JSON** (`<details>` open). | `12-accounting-sandbox-writeback.png` |
-| 12b | Same writeback page with **audit packet JSON** expanded. | *(same file or second crop)* |
-| 13 | Return to transaction detail **after writeback**: state summary mentions receipt + writeback, **Next UI action** = `view_accounting_sandbox_writeback`, only **View Accounting Sandbox Writeback** visible (no Create button). | `13-executed-transaction-with-writeback.png` |
-
-**Capture notes:**
-
-* Capture transaction detail **after execution, before writeback** — shows `create_accounting_sandbox_writeback` and Create button.
-* Capture writeback page with **draft bill JSON expanded**.
-* Capture writeback page with **audit packet JSON expanded** (can be same session as 12).
-* Capture transaction detail **after writeback** — shows `view_accounting_sandbox_writeback` and View link only.
-
-**Recommended full demo sequence including writeback:**
-
-```txt
-upload invoice → review fields → create transaction → approve → execute → view receipt
-→ return to transaction → create accounting sandbox draft bill → view writeback page
-```
+| # | Filename | Route/Page | Login Role Needed | Required State Before Capture | What It Proves |
+|---|---|---|---|---|---|
+| 01 | `01-login.png` | `/login` | None (Logged out) | App started, user is logged out. | Secure RBAC authentication wall. |
+| 02 | `02-dashboard-clean.png` | `/dashboard` | `controller` | Freshly reset DB. Queue is empty. | Core control plane overview. |
+| 03 | `03-invoice-upload.png` | `/dashboard/invoices/upload` | `controller` | Upload form ready. | Ability to intake offline evidence. |
+| 04 | `04-invoice-review.png` | `/dashboard/invoices/upload` (POST) | `controller` | Uploaded sample invoice. | OCR extraction and manual review step. |
+| 05 | `05-transaction-detail-preflight.png` | `/dashboard/transactions/{id}` | `controller` | Transaction submitted, decision=`approval_required`. | Policy execution and preflight structural decision. |
+| 06 | `06-approval-workflow.png` | `/dashboard/transactions/{id}` | `controller` | Still on the transaction detail. | Maker-checker controls (creator cannot approve). |
+| 07 | `07-execution-ready.png` | `/dashboard/transactions/{id}` | `executor` | Transaction approved by an approver. | Approval gating and execution readiness. |
+| 08 | `08-signed-receipt.png` | `/dashboard/transactions/{id}/receipt` | `executor` | Transaction executed. | Tamper-evident HMAC signed receipt generation. |
+| 09 | `09-accounting-writeback.png` | `/dashboard/transactions/{id}/writeback/accounting-sandbox` | `executor` | Accounting draft generated. | Safe local sandbox writeback without external ERP mutation. |
+| 10 | `10-evidence-pack.png` | `/dashboard/transactions/{id}` | `auditor` | Signed in as auditor. | Secure download for offline compliance packs. |
+| 11 | `11-replay.png` | `/dashboard/transactions/{id}/replay` | `auditor` | Signed in as auditor. | Policy replay capabilities without state mutation. |
+| 12 | `12-risk-monitor.png` | `/dashboard/risk` | `admin` | Some transactions and errors triggered. | Operational metrics and security event logging. |
+| 13 | `13-audit-log.png` | `/dashboard/audit` | `admin` | Various lifecycle events triggered. | Immutable historical ledger. |
+| 14 | `14-admin-vendors.png` | `/dashboard/admin/vendors` | `admin` | Seeded vendors exist. | Vendor onboarding and management. |
+| 15 | `15-admin-contracts.png` | `/dashboard/admin/contracts` | `admin` | Seeded contracts exist. | Contract and evidence association. |
+| 16 | `16-admin-policies.png` | `/dashboard/admin/policies` | `admin` | Policies visible. | Editable compliance thresholds. |
+| 17 | `17-admin-api-clients.png` | `/dashboard/admin/api-clients` | `admin` | Default API clients exist. | Scoped API access and key security. |
 
 ## Tips for clean shots
 
@@ -128,4 +75,13 @@ upload invoice → review fields → create transaction → approve → execute 
 * Use a dedicated demo profile so personal bookmarks and extensions don't appear.
 * Capture the full page (a page-height screenshot, not just the viewport) so the table and receipt JSON aren't cut off.
 * Keep transaction IDs visible — they're part of the proof that this is real ActionRail data, not a mockup.
-* For the dashboard screenshots, scroll far enough up to show the stat cards (Total · Approval required · Needs evidence · Blocked · Executed) — they communicate the queue state at a glance.
+
+## Captured live demo screenshots
+
+Captured images for the full live workflow are stored in:
+
+`docs/demo_captures/`
+
+See `WorkFlow.md` for the step-by-step workflow.
+
+16 of 17 screenshots were captured using automated Selenium + Edge headless on 2026-06-15. Only `01-preflight-response.png` (terminal/API output) requires manual capture.

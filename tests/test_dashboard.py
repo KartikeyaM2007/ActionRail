@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.dash_helpers import dash_get, dash_post
 
 TXN_ID_RE = re.compile(r"/dashboard/transactions/(txn_[a-f0-9]+)$")
 
@@ -26,6 +27,7 @@ def _isolated_db(tmp_path, monkeypatch):
     fresh = store.connect(tmp_path / "test.db")
     store.init_db(fresh)
     store.seed_demo(fresh)
+    store.update_policy_settings(fresh, require_contract_above=100000)
     monkeypatch.setattr(main, "conn", fresh)
     yield
     fresh.close()
@@ -38,7 +40,7 @@ def client() -> TestClient:
 
 
 def _create(client: TestClient, example_name: str) -> str:
-    r = client.post(f"/dashboard/demo/{example_name}")
+    r = dash_post(client, f"/dashboard/demo/{example_name}", role="controller")
     assert r.status_code == 303, r.text
     location = r.headers["location"]
     match = TXN_ID_RE.search(location)
@@ -47,8 +49,8 @@ def _create(client: TestClient, example_name: str) -> str:
 
 
 def _full_execute(client: TestClient, txn_id: str) -> None:
-    client.post(f"/dashboard/transactions/{txn_id}/approve")
-    client.post(f"/dashboard/transactions/{txn_id}/execute")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
+    dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
 
 
 def _dashboard_stats_from_html(body: str) -> dict[str, int]:
@@ -75,7 +77,7 @@ def _dashboard_stats_from_html(body: str) -> dict[str, int]:
 
 
 def test_dashboard_returns_200_and_demo_section(client: TestClient):
-    r = client.get("/dashboard")
+    r = dash_get(client, "/dashboard")
     assert r.status_code == 200
     body = r.text
     assert "RUN DEMO PREFLIGHT".lower() in body.lower()
@@ -83,7 +85,7 @@ def test_dashboard_returns_200_and_demo_section(client: TestClient):
 
 
 def test_dashboard_has_needs_evidence_stat_card(client: TestClient):
-    r = client.get("/dashboard")
+    r = dash_get(client, "/dashboard")
     assert r.status_code == 200
     body = r.text
     assert "Needs evidence" in body
@@ -91,7 +93,7 @@ def test_dashboard_has_needs_evidence_stat_card(client: TestClient):
     assert "neo-stat--muted" in body
     # After creating a missing-evidence transaction the count should reflect it.
     _create(client, "missing_evidence")
-    body = client.get("/dashboard").text
+    body = dash_get(client, "/dashboard").text
     # Look for the muted stat card containing "Needs evidence" + "1".
     # The stat-value div holds just the integer.
     assert ">1<" in body  # at least one stat now reads 1
@@ -99,7 +101,7 @@ def test_dashboard_has_needs_evidence_stat_card(client: TestClient):
 
 def test_dashboard_table_drops_agent_intent_action_columns(client: TestClient):
     _create(client, "approval_required")
-    body = client.get("/dashboard").text
+    body = dash_get(client, "/dashboard").text
     # The ">Agent<" / ">Intent<" / ">Action<" header cells are gone.
     assert ">Agent<" not in body
     assert ">Intent<" not in body
@@ -111,13 +113,13 @@ def test_dashboard_table_drops_agent_intent_action_columns(client: TestClient):
 
 def test_dashboard_table_uses_preflight_decision_column(client: TestClient):
     _create(client, "approval_required")
-    body = client.get("/dashboard").text
+    body = dash_get(client, "/dashboard").text
     assert ">Preflight Decision<" in body
     assert re.search(r"<th[^>]*>Decision</th>", body) is None
 
 
 def test_dashboard_empty_state_lists_recommended_demo_order(client: TestClient):
-    body = client.get("/dashboard").text
+    body = dash_get(client, "/dashboard").text
     assert "No transactions yet" in body
     assert "Recommended demo order" in body
     # The three example labels must appear in order in the empty state.
@@ -132,7 +134,7 @@ def test_dashboard_empty_state_lists_recommended_demo_order(client: TestClient):
 
 def test_demo_approval_required_creates_transaction(client: TestClient):
     txn_id = _create(client, "approval_required")
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     body = r.text
     assert txn_id in body
@@ -141,7 +143,7 @@ def test_demo_approval_required_creates_transaction(client: TestClient):
 
 def test_demo_duplicate_blocked_creates_blocked_transaction(client: TestClient):
     txn_id = _create(client, "duplicate_blocked")
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     body = r.text
     assert "blocked" in body.lower()
@@ -150,20 +152,24 @@ def test_demo_duplicate_blocked_creates_blocked_transaction(client: TestClient):
 
 def test_demo_missing_evidence_creates_needs_more_evidence(client: TestClient):
     txn_id = _create(client, "missing_evidence")
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     body = r.text
     assert "needs more evidence" in body.lower()
 
 
 def test_invalid_demo_name_returns_404(client: TestClient):
-    r = client.post("/dashboard/demo/not_a_real_example")
+    r = dash_post(client, "/dashboard/demo/not_a_real_example", role="controller")
     assert r.status_code == 404
 
 
 def test_demo_name_traversal_attempt_is_rejected(client: TestClient):
     # Whitelist must reject anything not in DEMO_EXAMPLES, including path-ish strings.
-    r = client.post("/dashboard/demo/..%2Fexamples%2Finvoice_approval_required.json")
+    r = dash_post(
+        client,
+        "/dashboard/demo/..%2Fexamples%2Finvoice_approval_required.json",
+        role="controller",
+    )
     assert r.status_code in (404, 400)
 
 
@@ -172,7 +178,7 @@ def test_demo_name_traversal_attempt_is_rejected(client: TestClient):
 
 def test_detail_shows_decision_and_status(client: TestClient):
     txn_id = _create(client, "approval_required")
-    r = client.get(f"/dashboard/transactions/{txn_id}")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert r.status_code == 200
     body = r.text
     assert "preflighted" in body.lower()
@@ -180,7 +186,7 @@ def test_detail_shows_decision_and_status(client: TestClient):
 
 
 def test_detail_404_for_unknown_txn(client: TestClient):
-    r = client.get("/dashboard/transactions/txn_does_not_exist")
+    r = dash_get(client, "/dashboard/transactions/txn_does_not_exist")
     assert r.status_code == 404
 
 
@@ -191,21 +197,21 @@ def test_full_happy_path_approve_execute_receipt(client: TestClient):
     txn_id = _create(client, "approval_required")
 
     # Approve
-    r = client.post(f"/dashboard/transactions/{txn_id}/approve")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
     assert r.status_code == 303
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     assert ">approved<" in detail.text or "neo-badge--status-approved" in detail.text
 
     # Execute
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     assert r.status_code == 303
-    detail = client.get(f"/dashboard/transactions/{txn_id}")
+    detail = dash_get(client, f"/dashboard/transactions/{txn_id}")
     assert detail.status_code == 200
     assert "neo-badge--status-executed" in detail.text
 
     # Receipt
-    r = client.get(f"/dashboard/transactions/{txn_id}/receipt")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/receipt")
     assert r.status_code == 200
     assert "receipt_signature" in r.text or "Receipt signature" in r.text
     # Signed payload section is present.
@@ -214,7 +220,7 @@ def test_full_happy_path_approve_execute_receipt(client: TestClient):
 
 def test_receipt_page_empty_state_when_no_receipt(client: TestClient):
     txn_id = _create(client, "approval_required")
-    r = client.get(f"/dashboard/transactions/{txn_id}/receipt")
+    r = dash_get(client, f"/dashboard/transactions/{txn_id}/receipt")
     assert r.status_code == 200
     assert "No receipt exists for this transaction yet." in r.text
 
@@ -224,7 +230,7 @@ def test_receipt_page_empty_state_when_no_receipt(client: TestClient):
 
 def test_blocked_transaction_cannot_execute(client: TestClient):
     txn_id = _create(client, "duplicate_blocked")
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     # Re-rendered detail with error banner at 400.
     assert r.status_code == 400
     assert b"transaction_blocked" in r.content
@@ -232,16 +238,16 @@ def test_blocked_transaction_cannot_execute(client: TestClient):
 
 def test_rejected_transaction_cannot_execute(client: TestClient):
     txn_id = _create(client, "approval_required")
-    r = client.post(f"/dashboard/transactions/{txn_id}/reject")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/reject", role="approver")
     assert r.status_code == 303
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     assert r.status_code == 400
     assert b"transaction_rejected" in r.content
 
 
 def test_needs_more_evidence_cannot_execute(client: TestClient):
     txn_id = _create(client, "missing_evidence")
-    r = client.post(f"/dashboard/transactions/{txn_id}/execute")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/execute", role="executor")
     assert r.status_code == 400
     # decision is needs_more_evidence; status is preflighted (not approved), so the
     # approval-required guard fires first. Either error string is acceptable proof
@@ -254,7 +260,7 @@ def test_needs_more_evidence_cannot_execute(client: TestClient):
 
 def test_blocked_transaction_cannot_be_approved(client: TestClient):
     txn_id = _create(client, "duplicate_blocked")
-    r = client.post(f"/dashboard/transactions/{txn_id}/approve")
+    r = dash_post(client, f"/dashboard/transactions/{txn_id}/approve", role="approver")
     assert r.status_code == 400
     assert b"blocked_transaction_cannot_be_approved" in r.content
 
@@ -349,12 +355,12 @@ def test_compute_dashboard_stats_needs_evidence_excludes_executed():
 
 def test_dashboard_stats_after_execute(client: TestClient):
     txn_id = _create(client, "approval_required")
-    body = _dashboard_stats_from_html(client.get("/dashboard").text)
+    body = _dashboard_stats_from_html(dash_get(client, "/dashboard").text)
     assert body["approval_required"] == 1
     assert body["executed"] == 0
 
     _full_execute(client, txn_id)
-    body = _dashboard_stats_from_html(client.get("/dashboard").text)
+    body = _dashboard_stats_from_html(dash_get(client, "/dashboard").text)
     assert body["total"] == 1
     assert body["approval_required"] == 0
     assert body["executed"] == 1
@@ -362,13 +368,13 @@ def test_dashboard_stats_after_execute(client: TestClient):
 
 def test_dashboard_stats_blocked_increments_blocked(client: TestClient):
     _create(client, "duplicate_blocked")
-    body = _dashboard_stats_from_html(client.get("/dashboard").text)
+    body = _dashboard_stats_from_html(dash_get(client, "/dashboard").text)
     assert body["blocked"] == 1
     assert body["approval_required"] == 0
 
 
 def test_dashboard_stats_missing_evidence_increments_needs_evidence(client: TestClient):
     _create(client, "missing_evidence")
-    body = _dashboard_stats_from_html(client.get("/dashboard").text)
+    body = _dashboard_stats_from_html(dash_get(client, "/dashboard").text)
     assert body["needs_evidence"] == 1
     assert body["executed"] == 0

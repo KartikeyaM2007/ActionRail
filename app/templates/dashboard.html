@@ -30,7 +30,10 @@
       <nav style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start">
         <a class="neo-btn neo-btn--ghost" href="/docs">Swagger</a>
         <a class="neo-btn" href="/actionrail/manifest.json">Manifest</a>
+        {% if can_demo_preflight | default(false) %}
         <a class="neo-btn" href="/dashboard/invoices/upload">Upload real invoice</a>
+        {% endif %}
+        {% include "partials/control_nav.html" %}
       </nav>
     </header>
 
@@ -67,7 +70,9 @@
         After submission you'll be redirected to the transaction detail page.
       </p>
       <div class="neo-demo-grid">
+        {% if can_demo_preflight | default(false) %}
         <form class="neo-form-inline" method="post" action="/dashboard/demo/approval_required">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <div class="neo-detail-card">
             <span class="neo-badge neo-badge--decision-approval_required">Approval required</span>
             <h3 class="neo-detail-card__title">Approval required invoice</h3>
@@ -79,6 +84,7 @@
           </div>
         </form>
         <form class="neo-form-inline" method="post" action="/dashboard/demo/duplicate_blocked">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <div class="neo-detail-card">
             <span class="neo-badge neo-badge--decision-blocked">Blocked</span>
             <h3 class="neo-detail-card__title">Duplicate invoice</h3>
@@ -90,6 +96,7 @@
           </div>
         </form>
         <form class="neo-form-inline" method="post" action="/dashboard/demo/missing_evidence">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <div class="neo-detail-card">
             <span class="neo-badge neo-badge--decision-needs_more_evidence">Needs more evidence</span>
             <h3 class="neo-detail-card__title">Missing evidence invoice</h3>
@@ -100,6 +107,9 @@
             <button class="neo-btn" type="submit">Create missing-evidence invoice</button>
           </div>
         </form>
+        {% else %}
+        <p class="neo-subtitle">Demo preflight requires controller or admin role.</p>
+        {% endif %}
       </div>
     </section>
 
@@ -149,6 +159,11 @@
               </td>
               <td>
                 <span class="neo-badge neo-badge--status-{{ row.status }}">{{ row.status }}</span>
+                {% if row.workflow_status %}
+                <div style="margin-top: 4px;">
+                  <span class="neo-badge neo-badge--status-{{ row.workflow_status }}" style="font-size: 0.7rem; padding: 2px 4px;">WF: {{ row.workflow_status }}</span>
+                </div>
+                {% endif %}
               </td>
               <td>
                 <a class="neo-link-button" href="/dashboard/transactions/{{ row.id }}">View</a>

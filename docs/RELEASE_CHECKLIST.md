@@ -63,12 +63,16 @@ Start the server:
 uvicorn app.main:app --reload
 ```
 
-Open: <http://127.0.0.1:8000/dashboard>
-
-- [ ] Dashboard loads with clean queue (after reset).
-- [ ] "RUN DEMO PREFLIGHT" buttons visible.
+- [ ] `/dashboard` redirects to `/login` when signed out.
+- [ ] Login as `controller@example.local` / `controller123` succeeds.
+- [ ] Dashboard loads with signed-in user visible in header.
+- [ ] "RUN DEMO PREFLIGHT" buttons visible (controller).
 - [ ] Stats cards visible (Total · Approval required · Needs evidence · Blocked · Executed).
-- [ ] "Upload real invoice" button visible.
+- [ ] "Upload real invoice" button visible (controller/admin).
+- [ ] Logout returns to `/login`.
+- [ ] Login as `admin@example.local` → `/dashboard/admin` loads.
+- [ ] Create vendor, contract, upload evidence, update policy threshold.
+- [ ] Confirm admin actions appear in `/dashboard/audit`.
 
 ---
 
@@ -77,7 +81,7 @@ Open: <http://127.0.0.1:8000/dashboard>
 Run from the dashboard:
 
 - [ ] Click **Approval Required Invoice** → `decision=approval_required`, checks shown.
-- [ ] Click **Approve** → status becomes `approved`.
+- [ ] Click **Approve** → status becomes `approved` (sign in as approver if using RBAC walkthrough).
 - [ ] Click **Execute** → status becomes `executed`.
 - [ ] Click **View Receipt** → signed HMAC-SHA256 receipt with canonical payload visible.
 - [ ] Click **Create Accounting Sandbox Draft Bill** → writeback page shows safety banner, draft bill JSON, and audit packet JSON.
@@ -187,3 +191,32 @@ git push
 - [ ] Screenshots captured or intentionally deferred (see [`docs/screenshots/README.md`](screenshots/README.md)).
 - [ ] GitHub repo pushed.
 - [ ] Optional release tag created (e.g. `v0.1.0-mvp`).
+
+---
+
+## 13. Final demo checklist
+
+- [ ] Full pytest passes
+- [ ] Reset script works
+- [ ] Demo users documented
+- [ ] Admin credentials documented as local demo only
+- [ ] API secure mode documented
+- [ ] Evidence export directory ignored
+- [ ] Contract evidence directory ignored
+- [ ] Uploaded invoice directory ignored
+- [ ] Dataset directory ignored
+- [ ] Screenshots optional but documented
+- [ ] No secrets committed
+- [ ] No DB committed
+- [ ] GitHub topics and description ready
+
+---
+
+## 14. Phase 6C Polish Checklist
+
+- [ ] Demo video script created (`docs/DEMO_VIDEO_SCRIPT.md`)
+- [ ] Screenshot list finalized (`docs/screenshots/README.md`)
+- [ ] Security note present (`SECURITY.md`)
+- [ ] GitHub publishing checklist present (`docs/GITHUB_PUBLISHING.md`)
+- [ ] Full `pytest` expected before public release
+- [ ] No secrets/DB/uploads/datasets committed

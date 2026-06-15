@@ -34,19 +34,73 @@ Readable overview for GitHub reviewers, interviewers, and the next developer pic
 
 ---
 
+## Agent-facing integration layer
+
+ActionRail acts as a secure buffer between the AI agent and sensitive financial systems:
+
+```text
+Agent / workflow system
+  │ (POST /actions/preflight)
+  ▼
+ActionRail JSON API (Primary)
+  │ (app/policy.py)
+  ▼
+Policy preflight checks (vendor, duplicate, contract, thresholds)
+  │
+  ├─► ALLOWED ───────────────┐
+  │                          ▼
+  └─► APPROVAL_REQUIRED ──► Human dashboard (Control plane)
+                             │
+                             ▼
+                           Approved
+                             │
+  ┌──────────────────────────┘
+  ▼
+Simulated execution (Receipt signed with HMAC-SHA256)
+  │
+  ▼
+Receipt / Evidence pack / Replay / Risk monitor logs
+```
+
+* **Agent API is Primary**: The HTTP/JSON API is the primary integration surface. The dashboard is secondary—a human-in-the-loop control plane for review, configuration, and manual approvals.
+* **External Isolation**: External financial systems (real banks, payment rails, ERP platforms) are intentionally **not** connected in this prototype. Execution boundaries are strictly simulated to preserve safety.
+
+---
+
 ## Request flow
 
 ### Agent API (primary)
 
-1. `POST /actions/preflight` — agent submits intent + invoice payload.
-2. Policy engine runs checks → returns decision + transaction ID.
-3. If `approval_required`, human calls `POST /approvals/{id}/approve` or rejects.
-4. If executable, agent or human calls `POST /actions/{id}/execute`.
-5. `GET /receipts/{id}` — signed HMAC receipt over canonical JSON.
+1. **Authentication**: `X-ActionRail-API-Key` headers are verified against local `api_clients` using PBKDF2 HMAC-SHA256.
+2. **Rate Limiting**: Checked via timestamped logs in `api_request_events`.
+3. **Idempotency**: Handled via `Idempotency-Key` tracking in `idempotency_records`.
+4. `POST /actions/preflight` — agent submits intent + invoice payload.
+5. Policy engine runs checks → returns decision + transaction ID.
+6. If `approval_required`, human calls `POST /approvals/{id}/approve` or rejects.
+7. If executable, agent or human calls `POST /actions/{id}/execute`.
+8. `GET /receipts/{id}` — signed HMAC receipt over canonical JSON.
 
 ### Dashboard (secondary, same backend)
 
 Server-rendered HTML forms POST to dashboard routes that call the same internal helpers as the JSON API. `303 See Other` redirects after every state change.
+
+**Phase 5A control plane (local demo):**
+
+- Session auth via Starlette `SessionMiddleware` (`ACTIONRAIL_SESSION_SECRET`; dev fallback documented in code).
+- Six demo roles with RBAC on dashboard actions (`app/auth.py`, `app/control.py`).
+- CSRF tokens on all dashboard POST forms.
+- Audit ledger (`audit_events` table) with `/dashboard/audit` for auditor/admin.
+- Transaction-level audit trail on detail pages.
+
+JSON API routes remain unauthenticated in this phase — agent integrations unchanged.
+
+**Phase 5B admin control plane (local demo):**
+
+- `/dashboard/admin` — vendor onboarding, contract registration, policy thresholds (admin only).
+- Vendor status: `verified`, `pending_review`, `blocked` — only verified passes `vendor_verified`.
+- Contract status: `active`, `inactive`, `expired` — inactive/expired fail `contract_match`.
+- Contract evidence stored under `data/contract_evidence/` (gitignored, not served publicly).
+- Policy edits affect future preflights only; existing transactions unchanged.
 
 ---
 
@@ -77,6 +131,7 @@ An executed transaction may still show `preflight decision = approval_required` 
 | `intent_locks` | Prevents concurrent agent work on same invoice intent |
 | `uploaded_documents` | Local invoice files + extraction/OCR metadata |
 | `accounting_writebacks` | Writeback metadata (idempotent per transaction + provider) |
+| `api_clients`, `api_request_events`, `idempotency_records` | API Security identity, scoping, rate-limiting, and idempotency logic |
 
 Local files:
 

@@ -2,6 +2,51 @@
 
 Working task log for ActionRail Finance. Update this file alongside `HANDOFF.md` and `CHANGELOG.md` after every meaningful change.
 
+- **Demo Screenshot Capture (done, this commit)**:
+  - Captured 16 of 17 demo screenshots using automated Selenium + Edge headless.
+  - Created `scripts/capture_demo_screenshots.py` for automated capture.
+  - Updated `WorkFlow.md` with screenshot status table and embedded image links.
+  - Updated `README.md` with live demo workflow pointer.
+  - Updated `docs/screenshots/README.md` with demo captures reference.
+  - Only `01-preflight-response.png` (terminal output) remains pending manual capture.
+  - **Tests: passing (no code changes).**
+
+- **Phase 6E — Agent integration examples (done)**:
+  - Created `docs/AGENT_INTEGRATION.md` explaining agent-first model, decisions, and integration patterns.
+  - Created `examples/agent_client.py` showing standard library HTTP client with decision handling.
+  - Created `examples/langgraph_actionrail_tool.py` demonstrating LangGraph framework integration.
+  - Created `examples/openapi_tool_schema.json` containing OpenAPI function schemas for LLMs.
+  - Created `examples/README.md` for client/tool quickstart.
+  - Created `tests/test_agent_examples.py` for schema and import validations.
+  - **Tests: 256/256 passing.**
+
+- **Phase 6D — Pre-public repository sanity check (done)**:
+  - Verified clean untracked state, zero secrets committed, and all links valid.
+  - **Tests: 252/252 passing.**
+
+- **Phase 6C — Public GitHub/demo asset polish (done)**:
+  - Added `docs/DEMO_VIDEO_SCRIPT.md`.
+  - Added `docs/GITHUB_PUBLISHING.md`.
+  - Added `SECURITY.md`.
+  - Updated screenshot list.
+
+- **Phase 5E — Compliance evidence packs, replay, and risk monitoring (done, this commit)**:
+  - `app/evidence_pack.py`: ZIP generation with manifest and SHA256 checksums.
+  - `app/replay.py`: Policy replay simulation to detect policy differences.
+  - `app/store.py`: `save_evidence_export` and `get_transaction_with_audit`.
+  - `app/main.py`: New endpoints `/evidence_pack` and `/replay` added.
+  - `app/templates/transaction_detail.html`: Risk monitor panel added to UI.
+  - Test suites updated with DB state isolation fix.
+  - **Tests: 252/252 passing.**
+
+- **Phase 5C � Approval workflow engine (done, this commit)**:
+  - pp/approval_workflow.py: Workflow generation and maker-checker validation logic.
+  - pp/main.py: Updated dashboard_approve and dashboard_execute to enforce 2-step rules.
+  - pp/templates/transaction_detail.html: UI rendering for workflow status and pending steps.
+  - 	ests/test_approval_workflow.py: Comprehensive test suite for Phase 5C.
+  - Test suites updated to use updated default policies for isolation.
+  - **Tests: 213/213 passing.**
+
 ---
 
 ## Current MVP goal
@@ -143,13 +188,40 @@ From the existing repo (Phase 0 in `PROJECT.md` section 20):
 - **`docs/screenshots/README.md`**: canonical 01–13 list + optional-for-tests note.
 - **Tests: 155/155 passing.**
 
+### Phase 5A — Authenticated control plane (done, this commit)
+
+- **`app/auth.py`**, **`app/control.py`**: local PBKDF2 auth, six roles, RBAC, CSRF, audit helpers.
+- **`app/store.py`**: `users`, `audit_events` tables + helpers; demo users seeded idempotently.
+- **`app/main.py`**: SessionMiddleware, login/logout/audit routes, protected dashboard routes, audit events.
+- **Templates**: login, forbidden, audit log, control nav partial; CSRF on all dashboard POST forms.
+- **`scripts/reset_demo_db.py`**: resets users + audit_events.
+- **`tests/test_auth.py`**, **`tests/dash_helpers.py`**; existing dashboard tests updated for auth/CSRF.
+- **Docs** updated (README demo credentials, ARCHITECTURE, SAFETY_BOUNDARY, DEMO_SCRIPT, etc.).
+- **Tests: 196/196 passing.**
+
+### Phase 5B — Policy admin, vendor onboarding, contract evidence (done, this commit)
+
+- **Phase 5B — Policy admin, vendor onboarding, contract evidence (done)**:
+  - `app/admin_routes.py`: admin dashboard routes (vendors, contracts, policies, evidence upload).
+  - `app/store.py`: schema migration, vendor/contract CRUD, policy update, contract evidence helpers.
+  - `app/policy.py`: vendor status + contract status/expiry checks.
+  - `app/auth.py`: `manage_admin` permission.
+  - Templates: `admin_*.html` (6 files).
+  - `data/contract_evidence/`, `.gitignore` updated.
+  - `tests/test_admin.py`: 21 new tests.
+  - **Tests: 196/196 passing.**
+
+- **Context-retention and handoff pass (done)**: verified state, created `docs/ANTIGRAVITY_HANDOFF.md`, `docs/ROUTE_MAP.md`, `docs/SCHEMA_MAP.md`, and `docs/NEXT_PHASE_5C_PROMPT.md`.
+
 ---
 
 ## Next tasks
 
 Priority order:
 
-1. **Expand backend-policy tests** (per `PROJECT.md` section 16) — backend-policy items not yet covered:
+1. **Phase 5C — Approval workflow engine** (see `docs/NEXT_PHASE_5C_PROMPT.md`): multi-step workflows, maker-checker separation, and execution gating.
+
+2. **Expand backend-policy tests** (per `PROJECT.md` section 16) — backend-policy items not yet covered:
    - Executed transaction returns same receipt idempotently.
    - Intent lock blocks second transaction for same invoice; expired lock cleaned up.
    - Action not in `allowed_actions` is blocked.
@@ -159,13 +231,13 @@ Priority order:
    - Receipt signature verifies with secret.
    - Policy update changes decision.
 
-2. **Phase 2B — Image OCR**: Add Tesseract / PaddleOCR / EasyOCR support for scanned image invoices.
+3. **Phase 2B — Image OCR**: Add Tesseract / PaddleOCR / EasyOCR support for scanned image invoices.
 
-3. Clean up `app/cli.py` to expose: health, manifest, approve, reject, execute, receipt, transactions, dashboard.
+4. Clean up `app/cli.py` to expose: health, manifest, approve, reject, execute, receipt, transactions, dashboard.
 
-4. Capture and commit the 7 demo screenshots per `docs/screenshots/README.md`.
+5. Capture and commit the 7 demo screenshots per `docs/screenshots/README.md`.
 
-5. Pick a license and add a `LICENSE` file before public release.
+6. Pick a license and add a `LICENSE` file before public release.
 
 ---
 
@@ -178,6 +250,6 @@ None right now. Future phases (real ingestion, integrations, MCP server, payment
 ## Testing status
 
 - Test runner: `pytest -q`.
-- Last known state (2026-06-14, after Phase 4A): **155 / 155 tests pass**.
+- Last known state (2026-06-14, after Context-retention pass): **196 / 196 tests pass**.
 - Dashboard tests use an autouse fixture that monkeypatches `app.main.conn` to a fresh per-test SQLite DB seeded with demo data. Without isolation, the persistent intent-lock TTL (15 minutes) makes serial demo-preflights of the same invoice land as `decision=blocked`.
 - **Rule**: do not remove tests. Add new tests under `tests/` for every new policy/transaction behavior.
