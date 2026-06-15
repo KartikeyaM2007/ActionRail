@@ -2,6 +2,7 @@ services:
   - type: web
     name: actionrail-finance
     env: python
+    plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port 10000"
     envVars:
@@ -9,11 +10,3 @@ services:
         value: 3.12.0
       - key: ACTIONRAIL_SESSION_SECRET
         generateValue: true
-      - key: ACTIONRAIL_DB_PATH
-        value: /data/actionrail.db
-      - key: ACTIONRAIL_DATA_DIR
-        value: /data
-    disk:
-      name: actionrail-data
-      mountPath: /data
-      sizeGB: 1
